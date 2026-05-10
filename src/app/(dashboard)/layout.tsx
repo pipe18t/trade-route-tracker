@@ -3,8 +3,10 @@ import { Sidebar } from "@/components/layout/sidebar";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Menu, LogOut, MapPin } from "lucide-react";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
 
 const navItems = [
@@ -35,9 +37,9 @@ export default async function DashboardLayout({
         </Link>
         <Sheet>
           <SheetTrigger>
-            <Button variant="ghost" size="icon" className="text-white hover:bg-zinc-800">
+            <span className={cn(buttonVariants({ variant: "ghost", size: "icon" }), "text-white hover:bg-zinc-800")}>
               <Menu className="h-5 w-5" />
-            </Button>
+            </span>
           </SheetTrigger>
           <SheetContent side="right" className="w-64 bg-zinc-900 text-white border-zinc-800">
             <div className="flex flex-col h-full">
