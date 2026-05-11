@@ -5,6 +5,7 @@ import {
   FileText,
   Upload,
   Settings,
+  Monitor,
   LogOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,6 +19,7 @@ const navItems = [
   { href: "/reportes/semanal", label: "Reportes", icon: FileText },
   { href: "/importar", label: "Importar", icon: Upload },
   { href: "/configuracion/zonas", label: "Zonas", icon: Settings },
+  { href: "/panel", label: "Panel", icon: Monitor },
 ];
 
 interface SidebarProps {

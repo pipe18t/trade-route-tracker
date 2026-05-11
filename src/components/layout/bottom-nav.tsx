@@ -8,6 +8,7 @@ import {
   MoreHorizontal,
   Upload,
   Settings,
+  Monitor,
   LogOut,
 } from "lucide-react";
 import Link from "next/link";
@@ -26,6 +27,7 @@ const mainItems = [
 const moreItems = [
   { href: "/importar", label: "Importar", icon: Upload },
   { href: "/configuracion/zonas", label: "Zonas", icon: Settings },
+  { href: "/panel", label: "Panel", icon: Monitor },
   { href: "/api/auth/logout", label: "Cerrar sesión", icon: LogOut, isPost: true },
 ];
 

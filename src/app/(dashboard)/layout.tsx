@@ -13,6 +13,7 @@ import {
   FileText,
   Upload,
   Settings,
+  Monitor,
   LogOut,
   Menu,
 } from "lucide-react";
@@ -24,6 +25,7 @@ const navItems = [
   { href: "/reportes/semanal", label: "Reportes", icon: FileText },
   { href: "/importar", label: "Importar", icon: Upload },
   { href: "/configuracion/zonas", label: "Zonas", icon: Settings },
+  { href: "/panel", label: "Panel", icon: Monitor },
 ];
 
 export default async function DashboardLayout({
