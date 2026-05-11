@@ -158,6 +158,7 @@ create table public.route_clients (
 alter table public.profiles enable row level security;
 create policy "Users can view all profiles" on public.profiles for select using (true);
 create policy "Users can update own profile" on public.profiles for update using (auth.uid() = id);
+create policy "Users can insert own profile" on public.profiles for insert with check (auth.uid() = id);
 
 -- Zones: public read
 alter table public.zones enable row level security;
