@@ -1,36 +1,81 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Trade Route Tracker
 
-## Getting Started
+**Seguimiento de rutas y ejecución en terreno para Trade Marketing On Trade.**
 
-First, run the development server:
+Aplicación web fullstack (Next.js + Supabase) que permite a una ejecutiva de Trade Marketing gestionar su cartera de 300+ locales, planificar rutas de visita, registrar hallazgos en terreno, subir fotos de evidencia y generar minutas semanales para el supervisor.
+
+## Stack
+
+| Capa | Tecnología |
+|---|---|
+| Framework | Next.js 16.2.6 (App Router) |
+| Lenguaje | TypeScript 5 (strict) |
+| UI | Tailwind CSS v4 + shadcn/ui v4 (Base UI) |
+| Base de datos | PostgreSQL (Supabase) |
+| Auth | Supabase Auth (Google OAuth + Magic Link) |
+| Storage | Supabase Storage |
+| Formularios | React Hook Form + Zod 4 |
+| Gráficos | Recharts |
+| Toasts | Sonner |
+| Iconos | Lucide React |
+| Deploy | Vercel |
+
+## Módulos
+
+| Módulo | Ruta | Descripción |
+|---|---|---|
+| Dashboard | `/dashboard` | KPIs, distribución por estado, avance por zona, seguimientos |
+| Clientes | `/clientes` | Cartera con filtros, CRUD, ficha con historial y fotos |
+| Visitas | `/clientes/[id]/nueva-visita` | Formulario con 7 secciones, photo uploader |
+| Rutas | `/rutas` | Planificador con Google Maps waypoints |
+| Reportes | `/reportes/semanal` | Minuta semanal con copiar al portapapeles |
+| Importar | `/importar` | Carga CSV con parser (nombre;dirección) |
+| Zonas | `/configuracion/zonas` | CRUD de zonas de ruta |
+
+## Inicio rápido
 
 ```bash
+# Instalar dependencias
+npm install
+
+# Configurar variables de entorno
+cp .env.local.example .env.local
+# Editar .env.local con tus credenciales de Supabase
+
+# Ejecutar migración en Supabase SQL Editor
+# Copiar supabase/migrations/001_initial_schema.sql
+
+# Desarrollo
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+
+# Build
+npm run build -- --webpack  # Windows sin Turbopack
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Variables de entorno
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```
+NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbG...
+NEXT_PUBLIC_SITE_URL=https://trade-route-tracker.vercel.app
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Documentación técnica
 
-## Learn More
+- [Arquitectura](docs/tech/architecture.md)
+- [Base de datos](docs/tech/database.md)
+- [API y rutas](docs/tech/api.md)
+- [Autenticación](docs/tech/authentication.md)
+- [Despliegue](docs/tech/deployment.md)
+- [Guía de desarrollo](docs/tech/developer-guide.md)
+- [Seguridad](docs/tech/security.md)
+- [Testing](docs/tech/testing.md)
+- [OpenAPI Spec](openapi.yaml)
 
-To learn more about Next.js, take a look at the following resources:
+## Manual de usuario
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+[Manual de uso completo](docs/manual-de-uso.md) con ejemplos y casos prácticos.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Licencia
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Privada — MVP.

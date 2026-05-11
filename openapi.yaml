@@ -1,0 +1,395 @@
+openapi: "3.0.3"
+info:
+  title: Trade Route Tracker API
+  description: API para seguimiento de rutas y visitas en terreno de Trade Marketing On Trade.
+  version: "1.0.0"
+  contact:
+    name: Trade Route Tracker
+    url: https://github.com/pipe18t/trade-route-tracker
+
+servers:
+  - url: http://localhost:3000
+    description: Desarrollo local
+  - url: https://trade-route-tracker.vercel.app
+    description: Producción (Vercel)
+
+security:
+  - cookieAuth: []
+
+paths:
+  /auth/callback:
+    get:
+      summary: Intercambiar código OTP/OAuth por sesión
+      description: Recibe el código de Supabase Auth (magic link u OAuth) y lo intercambia por una sesión.
+      operationId: authCallback
+      tags: [Auth]
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Código OTP u OAuth de Supabase
+        - name: next
+          in: query
+          required: false
+          schema:
+            type: string
+            default: /dashboard
+          description: Ruta de redirección post-login
+      responses:
+        "302":
+          description: Redirección a /dashboard (éxito) o /login?error=oauth_callback_failed (error)
+
+  /api/auth/logout:
+    post:
+      summary: Cerrar sesión
+      description: Cierra la sesión de Supabase y redirige al login.
+      operationId: logout
+      tags: [Auth]
+      responses:
+        "302":
+          description: Redirección a /login
+
+  /clientes:
+    get:
+      summary: Listar clientes
+      description: Retorna la cartera de clientes con filtros opcionales. Renderizado como Server Component.
+      operationId: getClientes
+      tags: [Clientes]
+      parameters:
+        - name: region
+          in: query
+          schema:
+            type: string
+            enum: [RM, V]
+        - name: zone_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pendiente, visitado, seguimiento, no_atendido, coordinar_hora, administrador_no_disponible]
+        - name: priority
+          in: query
+          schema:
+            type: string
+            enum: [alta, media, baja]
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Búsqueda parcial por nombre
+        - name: visit_day
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Página HTML con tabla de clientes
+          content:
+            text/html:
+              schema:
+                type: string
+
+  /clientes/nuevo:
+    get:
+      summary: Formulario nuevo cliente
+      tags: [Clientes]
+      responses:
+        "200":
+          description: Página con formulario de creación
+
+  /clientes/{id}:
+    get:
+      summary: Ficha del local
+      tags: [Clientes]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Página con datos del local, historial de visitas y fotos
+
+  /clientes/{id}/editar:
+    get:
+      summary: Formulario editar cliente
+      tags: [Clientes]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Página con formulario de edición
+
+  /clientes/{id}/nueva-visita:
+    get:
+      summary: Formulario registrar visita
+      tags: [Visitas]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Página con formulario de visita de 7 secciones
+
+  /rutas:
+    get:
+      summary: Listar rutas
+      tags: [Rutas]
+      responses:
+        "200":
+          description: Página con lista de rutas y acciones de estado
+
+  /rutas/nueva:
+    get:
+      summary: Formulario nueva ruta
+      tags: [Rutas]
+      responses:
+        "200":
+          description: Página de creación de ruta con selector de zona y locales
+
+  /rutas/{id}:
+    get:
+      summary: Detalle de ruta
+      tags: [Rutas]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Página con detalle de ruta, lista de locales y link Google Maps
+
+  /reportes/semanal:
+    get:
+      summary: Generador de reporte semanal
+      tags: [Reportes]
+      responses:
+        "200":
+          description: Página con filtros de fecha/región/zona y reporte generado
+
+  /importar:
+    get:
+      summary: Importación CSV
+      tags: [Importar]
+      responses:
+        "200":
+          description: Página con file upload, preview y botón de importación
+
+  /configuracion/zonas:
+    get:
+      summary: CRUD de zonas
+      tags: [Configuración]
+      responses:
+        "200":
+          description: Página con lista de zonas agrupadas por región y diálogos CRUD
+
+  /panel:
+    get:
+      summary: Panel de control técnico
+      tags: [Sistema]
+      responses:
+        "200":
+          description: Página con estadísticas de BD, rutas, stack y componentes
+
+  /dashboard:
+    get:
+      summary: Dashboard principal
+      tags: [Dashboard]
+      responses:
+        "200":
+          description: Página con KPIs, distribución por estado, avance por zona
+
+components:
+  securitySchemes:
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: sb-cvayjrtvctybbhvfquvh-auth-token
+      description: Cookie de sesión de Supabase
+
+  schemas:
+    Client:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        address:
+          type: string
+          nullable: true
+        region:
+          type: string
+        comuna:
+          type: string
+          nullable: true
+        zone_id:
+          type: string
+          format: uuid
+          nullable: true
+        priority:
+          type: string
+          enum: [alta, media, baja]
+        status:
+          type: string
+          enum: [pendiente, visitado, seguimiento, no_atendido, coordinar_hora, administrador_no_disponible]
+
+    Visit:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        client_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        visit_date:
+          type: string
+          format: date
+        visit_time:
+          type: string
+          format: time
+          nullable: true
+        contact_name:
+          type: string
+          nullable: true
+        could_talk:
+          type: boolean
+          nullable: true
+        final_status:
+          type: string
+          enum: [visitado, seguimiento, no_atendido, coordinar_hora, administrador_no_disponible]
+        pop_material:
+          type: array
+          items:
+            type: string
+        opportunity_type:
+          type: array
+          items:
+            type: string
+
+    Zone:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        region:
+          type: string
+          enum: [RM, V]
+        description:
+          type: string
+          nullable: true
+
+    Route:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        region:
+          type: string
+          nullable: true
+        zone_id:
+          type: string
+          format: uuid
+          nullable: true
+        route_date:
+          type: string
+          format: date
+          nullable: true
+        status:
+          type: string
+          enum: [planificada, en_progreso, completada, cancelada]
+
+    WeeklyReport:
+      type: object
+      properties:
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        userName:
+          type: string
+        region:
+          type: string
+        zones:
+          type: string
+        stats:
+          type: object
+          properties:
+            totalVisits:
+              type: integer
+            seguimiento:
+              type: integer
+            noAtendidos:
+              type: integer
+            conOportunidad:
+              type: integer
+        visits:
+          type: array
+          items:
+            $ref: "#/components/schemas/Visit"
+        opportunities:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Mensaje de error
+
+tags:
+  - name: Auth
+    description: Autenticación (login, callback, logout)
+  - name: Dashboard
+    description: KPIs y métricas
+  - name: Clientes
+    description: CRUD de cartera de clientes
+  - name: Visitas
+    description: Registro de visitas en terreno
+  - name: Rutas
+    description: Planificación de rutas
+  - name: Reportes
+    description: Generación de minuta semanal
+  - name: Importar
+    description: Importación CSV
+  - name: Configuración
+    description: Zonas de ruta
+  - name: Sistema
+    description: Panel de control técnico
