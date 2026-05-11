@@ -8,7 +8,7 @@ create extension if not exists "uuid-ossp";
 -- ============================================
 -- PROFILES (extends auth.users)
 -- ============================================
-create table public.profiles (
+create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text,
   email text,
@@ -36,7 +36,7 @@ create or replace trigger on_auth_user_created
 -- ============================================
 -- ZONES
 -- ============================================
-create table public.zones (
+create table if not exists public.zones (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   region text not null,
@@ -44,8 +44,10 @@ create table public.zones (
   created_at timestamp with time zone default now()
 );
 
--- Seed zones
-insert into public.zones (name, region) values
+-- Seed zones (skip if already exist)
+insert into public.zones (name, region)
+select name, region
+from (values
   ('Providencia / Manuel Montt / Bilbao', 'RM'),
   ('Ñuñoa / Plaza Ñuñoa', 'RM'),
   ('La Reina / Larraín', 'RM'),
@@ -56,12 +58,14 @@ insert into public.zones (name, region) values
   ('Valparaíso', 'V'),
   ('Reñaca / Concón', 'V'),
   ('Quilpué / Villa Alemana', 'V'),
-  ('Interior / pendientes', 'V');
+  ('Interior / pendientes', 'V')
+) as t(name, region)
+where not exists (select 1 from public.zones where zones.name = t.name);
 
 -- ============================================
 -- CLIENTS
 -- ============================================
-create table public.clients (
+create table if not exists public.clients (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   address text,
@@ -82,7 +86,7 @@ create table public.clients (
 -- ============================================
 -- VISITS
 -- ============================================
-create table public.visits (
+create table if not exists public.visits (
   id uuid primary key default gen_random_uuid(),
   client_id uuid references public.clients(id) on delete cascade,
   user_id uuid references public.profiles(id) on delete set null,
@@ -116,7 +120,7 @@ create table public.visits (
 -- ============================================
 -- VISIT PHOTOS
 -- ============================================
-create table public.visit_photos (
+create table if not exists public.visit_photos (
   id uuid primary key default gen_random_uuid(),
   visit_id uuid references public.visits(id) on delete cascade,
   client_id uuid references public.clients(id) on delete cascade,
@@ -128,7 +132,7 @@ create table public.visit_photos (
 -- ============================================
 -- ROUTES
 -- ============================================
-create table public.routes (
+create table if not exists public.routes (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references public.profiles(id) on delete set null,
   name text not null,
@@ -142,7 +146,7 @@ create table public.routes (
 -- ============================================
 -- ROUTE CLIENTS (join table)
 -- ============================================
-create table public.route_clients (
+create table if not exists public.route_clients (
   id uuid primary key default gen_random_uuid(),
   route_id uuid references public.routes(id) on delete cascade,
   client_id uuid references public.clients(id) on delete cascade,
@@ -153,6 +157,18 @@ create table public.route_clients (
 -- ============================================
 -- ROW LEVEL SECURITY
 -- ============================================
+
+-- Drop all existing policies to make migration idempotent
+do $$
+declare
+  pol record;
+begin
+  for pol in select policyname, tablename from pg_policies where schemaname = 'public'
+  loop
+    execute format('drop policy if exists %I on public.%I', pol.policyname, pol.tablename);
+  end loop;
+end;
+$$;
 
 -- Profiles: users can read all but only update their own
 alter table public.profiles enable row level security;
@@ -214,7 +230,18 @@ create policy "Users can delete own route_clients" on public.route_clients for d
 -- ============================================
 -- Bucket created via Management API. Run policies below:
 
--- Storage policies
+-- Storage policies (idempotent)
+do $$
+declare
+  spol record;
+begin
+  for spol in select policyname from pg_policies where schemaname = 'storage' and tablename = 'objects'
+  loop
+    execute format('drop policy if exists %I on storage.objects', spol.policyname);
+  end loop;
+end;
+$$;
+
 create policy "Public can view visit photos" on storage.objects for select using (bucket_id = 'visit-photos');
 create policy "Authenticated users can upload visit photos" on storage.objects for insert with check (bucket_id = 'visit-photos' and auth.role() = 'authenticated');
 create policy "Users can delete own visit photos" on storage.objects for delete using (bucket_id = 'visit-photos' and auth.uid() = owner);
