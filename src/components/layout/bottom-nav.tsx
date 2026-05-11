@@ -56,17 +56,15 @@ export function BottomNav() {
         })}
 
         <Sheet open={open} onOpenChange={setOpen}>
-          <SheetTrigger>
-            <button
-              className={`flex flex-col items-center justify-center gap-0.5 min-w-0 flex-1 py-1 text-[11px] font-medium transition-colors ${
-                pathname.startsWith("/importar") || pathname.startsWith("/configuracion")
-                  ? "text-blue-600"
-                  : "text-zinc-500 hover:text-zinc-900"
-              }`}
-            >
-              <MoreHorizontal className="h-5 w-5" />
-              <span className="truncate">Más</span>
-            </button>
+          <SheetTrigger
+            className={`flex flex-col items-center justify-center gap-0.5 min-w-0 flex-1 py-1 text-[11px] font-medium transition-colors ${
+              pathname.startsWith("/importar") || pathname.startsWith("/configuracion")
+                ? "text-blue-600"
+                : "text-zinc-500 hover:text-zinc-900"
+            }`}
+          >
+            <MoreHorizontal className="h-5 w-5" />
+            <span className="truncate">Más</span>
           </SheetTrigger>
           <SheetContent side="bottom" className="h-auto max-h-[50vh] rounded-t-xl">
             <div className="space-y-1 py-4">
