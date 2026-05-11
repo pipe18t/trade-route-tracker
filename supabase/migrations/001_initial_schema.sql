@@ -176,32 +176,32 @@ create policy "Users can view all profiles" on public.profiles for select using 
 create policy "Users can update own profile" on public.profiles for update using (auth.uid() = id);
 create policy "Users can insert own profile" on public.profiles for insert with check (auth.uid() = id);
 
--- Zones: public read
+-- Zones
 alter table public.zones enable row level security;
-create policy "Authenticated users can read zones" on public.zones for select using (auth.role() = 'authenticated');
-create policy "Authenticated users can insert zones" on public.zones for insert with check (auth.role() = 'authenticated');
-create policy "Authenticated users can update zones" on public.zones for update using (auth.role() = 'authenticated');
-create policy "Authenticated users can delete zones" on public.zones for delete using (auth.role() = 'authenticated');
+create policy "Users can read zones" on public.zones for select using (true);
+create policy "Users can insert zones" on public.zones for insert with check (auth.uid() is not null);
+create policy "Users can update zones" on public.zones for update using (auth.uid() is not null);
+create policy "Users can delete zones" on public.zones for delete using (auth.uid() is not null);
 
--- Clients: authenticated users can CRUD
+-- Clients
 alter table public.clients enable row level security;
-create policy "Authenticated users can read clients" on public.clients for select using (auth.role() = 'authenticated');
-create policy "Authenticated users can insert clients" on public.clients for insert with check (auth.role() = 'authenticated');
-create policy "Authenticated users can update clients" on public.clients for update using (auth.role() = 'authenticated');
-create policy "Authenticated users can delete clients" on public.clients for delete using (auth.role() = 'authenticated');
+create policy "Users can read clients" on public.clients for select using (true);
+create policy "Users can insert clients" on public.clients for insert with check (auth.uid() is not null);
+create policy "Users can update clients" on public.clients for update using (auth.uid() is not null);
+create policy "Users can delete clients" on public.clients for delete using (auth.uid() is not null);
 
--- Visits: users can read all, CRUD own
+-- Visits
 alter table public.visits enable row level security;
-create policy "Authenticated users can read visits" on public.visits for select using (auth.role() = 'authenticated');
-create policy "Users can insert visits" on public.visits for insert with check (auth.uid() = user_id);
+create policy "Users can read visits" on public.visits for select using (true);
+create policy "Users can insert own visits" on public.visits for insert with check (auth.uid() = user_id);
 create policy "Users can update own visits" on public.visits for update using (auth.uid() = user_id);
 create policy "Users can delete own visits" on public.visits for delete using (auth.uid() = user_id);
 
 -- Visit photos
 alter table public.visit_photos enable row level security;
-create policy "Authenticated users can read photos" on public.visit_photos for select using (auth.role() = 'authenticated');
-create policy "Authenticated users can insert visit photos" on public.visit_photos for insert with check (
-  auth.role() = 'authenticated' and
+create policy "Users can read photos" on public.visit_photos for select using (true);
+create policy "Users can insert own visit photos" on public.visit_photos for insert with check (
+  auth.uid() is not null and
   exists (select 1 from public.visits where visits.id = visit_photos.visit_id and visits.user_id = auth.uid())
 );
 create policy "Users can delete own visit photos" on public.visit_photos for delete using (
@@ -210,14 +210,14 @@ create policy "Users can delete own visit photos" on public.visit_photos for del
 
 -- Routes
 alter table public.routes enable row level security;
-create policy "Authenticated users can read routes" on public.routes for select using (auth.role() = 'authenticated');
+create policy "Users can read routes" on public.routes for select using (true);
 create policy "Users can insert own routes" on public.routes for insert with check (auth.uid() = user_id);
 create policy "Users can update own routes" on public.routes for update using (auth.uid() = user_id);
 create policy "Users can delete own routes" on public.routes for delete using (auth.uid() = user_id);
 
 -- Route clients
 alter table public.route_clients enable row level security;
-create policy "Authenticated users can read route_clients" on public.route_clients for select using (auth.role() = 'authenticated');
+create policy "Users can read route_clients" on public.route_clients for select using (true);
 create policy "Users can insert route_clients" on public.route_clients for insert with check (
   exists (select 1 from public.routes where routes.id = route_clients.route_id and routes.user_id = auth.uid())
 );
@@ -249,15 +249,15 @@ create policy "Users can delete own visit photos" on storage.objects for delete 
 -- ============================================
 -- INDEXES
 -- ============================================
-create index idx_clients_zone_id on public.clients(zone_id);
-create index idx_clients_status on public.clients(status);
-create index idx_clients_region on public.clients(region);
-create index idx_visits_client_id on public.visits(client_id);
-create index idx_visits_user_id on public.visits(user_id);
-create index idx_visits_visit_date on public.visits(visit_date);
-create index idx_visit_photos_visit_id on public.visit_photos(visit_id);
-create index idx_routes_user_id on public.routes(user_id);
-create index idx_route_clients_route_id on public.route_clients(route_id);
+create index if not exists idx_clients_zone_id on public.clients(zone_id);
+create index if not exists idx_clients_status on public.clients(status);
+create index if not exists idx_clients_region on public.clients(region);
+create index if not exists idx_visits_client_id on public.visits(client_id);
+create index if not exists idx_visits_user_id on public.visits(user_id);
+create index if not exists idx_visits_visit_date on public.visits(visit_date);
+create index if not exists idx_visit_photos_visit_id on public.visit_photos(visit_id);
+create index if not exists idx_routes_user_id on public.routes(user_id);
+create index if not exists idx_route_clients_route_id on public.route_clients(route_id);
 
 -- ============================================
 -- TRIGGER: auto-update clients.updated_at
@@ -272,7 +272,7 @@ begin
 end;
 $$;
 
-create trigger update_clients_updated_at
+create or replace trigger update_clients_updated_at
   before update on public.clients
   for each row execute function public.update_updated_at_column();
 
@@ -291,6 +291,19 @@ begin
 end;
 $$;
 
-create trigger update_client_status_after_visit
+create or replace trigger update_client_status_after_visit
   after insert or update of final_status on public.visits
   for each row execute function public.update_client_status_from_visit();
+
+-- ============================================
+-- GRANTS — ensure authenticated role has access
+-- ============================================
+grant usage on schema public to anon, authenticated;
+grant all on all tables in schema public to anon, authenticated;
+grant all on all sequences in schema public to anon, authenticated;
+grant all on all functions in schema public to anon, authenticated;
+grant all on all routines in schema public to anon, authenticated;
+alter default privileges in schema public grant all on tables to anon, authenticated;
+alter default privileges in schema public grant all on sequences to anon, authenticated;
+alter default privileges in schema public grant all on functions to anon, authenticated;
+alter default privileges in schema public grant all on routines to anon, authenticated;

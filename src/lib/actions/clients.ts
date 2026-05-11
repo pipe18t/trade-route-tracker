@@ -30,7 +30,10 @@ export async function getClients(filters?: {
   if (filters?.search) query = query.ilike("name", `%${filters.search}%`);
 
   const { data, error } = await query;
-  if (error) throw error;
+  if (error) {
+    console.error("getClients error:", JSON.stringify(error));
+    throw error;
+  }
   return data as (Client & { zone: { name: string } | null })[];
 }
 

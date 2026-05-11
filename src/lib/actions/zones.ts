@@ -10,7 +10,10 @@ export async function getZones() {
     .select("*")
     .order("region")
     .order("name");
-  if (error) throw error;
+  if (error) {
+    console.error("getZones error:", JSON.stringify(error));
+    throw error;
+  }
   return data;
 }
 
