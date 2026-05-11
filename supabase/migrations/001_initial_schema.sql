@@ -249,15 +249,15 @@ create policy "Users can delete own visit photos" on storage.objects for delete 
 -- ============================================
 -- INDEXES
 -- ============================================
-create index idx_clients_zone_id on public.clients(zone_id);
-create index idx_clients_status on public.clients(status);
-create index idx_clients_region on public.clients(region);
-create index idx_visits_client_id on public.visits(client_id);
-create index idx_visits_user_id on public.visits(user_id);
-create index idx_visits_visit_date on public.visits(visit_date);
-create index idx_visit_photos_visit_id on public.visit_photos(visit_id);
-create index idx_routes_user_id on public.routes(user_id);
-create index idx_route_clients_route_id on public.route_clients(route_id);
+create index if not exists idx_clients_zone_id on public.clients(zone_id);
+create index if not exists idx_clients_status on public.clients(status);
+create index if not exists idx_clients_region on public.clients(region);
+create index if not exists idx_visits_client_id on public.visits(client_id);
+create index if not exists idx_visits_user_id on public.visits(user_id);
+create index if not exists idx_visits_visit_date on public.visits(visit_date);
+create index if not exists idx_visit_photos_visit_id on public.visit_photos(visit_id);
+create index if not exists idx_routes_user_id on public.routes(user_id);
+create index if not exists idx_route_clients_route_id on public.route_clients(route_id);
 
 -- ============================================
 -- TRIGGER: auto-update clients.updated_at
@@ -272,7 +272,7 @@ begin
 end;
 $$;
 
-create trigger update_clients_updated_at
+create or replace trigger update_clients_updated_at
   before update on public.clients
   for each row execute function public.update_updated_at_column();
 
@@ -291,6 +291,6 @@ begin
 end;
 $$;
 
-create trigger update_client_status_after_visit
+create or replace trigger update_client_status_after_visit
   after insert or update of final_status on public.visits
   for each row execute function public.update_client_status_from_visit();
