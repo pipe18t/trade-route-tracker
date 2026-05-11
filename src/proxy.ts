@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
+const PUBLIC_PATHS = ["/login", "/auth/callback", "/_next", "/api/auth"];
+
 export default async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -13,7 +15,7 @@ export default async function proxy(request: NextRequest) {
           return request.cookies.getAll();
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value, options }) =>
+          cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value)
           );
           supabaseResponse = NextResponse.next({ request });
@@ -30,13 +32,7 @@ export default async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
-
-  // Public routes
-  const publicPaths = ["/login", "/auth/callback"];
-  const isPublicPath = publicPaths.some((p) => path.startsWith(p));
-
-  // Protected routes under dashboard
-  const isDashboardPath = path.startsWith("/(dashboard)") || path === "/";
+  const isPublicPath = PUBLIC_PATHS.some((p) => path.startsWith(p));
 
   if (!user && !isPublicPath) {
     const url = request.nextUrl.clone();
@@ -44,7 +40,7 @@ export default async function proxy(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && isPublicPath && path !== "/auth/callback") {
+  if (user && path === "/login") {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);

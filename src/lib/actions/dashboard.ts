@@ -5,100 +5,82 @@ import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 export async function getDashboardStats() {
   const supabase = await createSupabaseClient();
 
-  const { count: total, error: totalErr } = await supabase
+  // 1 query para todos los conteos por status
+  const { data: statusCounts } = await supabase
     .from("clients")
-    .select("*", { count: "exact", head: true });
+    .select("status");
 
-  const { count: visitados, error: vErr } = await supabase
-    .from("clients")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "visitado");
+  const counts: Record<string, number> = {};
+  (statusCounts || []).forEach((c: { status: string }) => {
+    counts[c.status] = (counts[c.status] || 0) + 1;
+  });
 
-  const { count: pendientes, error: pErr } = await supabase
-    .from("clients")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "pendiente");
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  const pendientes = counts.pendiente || 0;
+  const visitados = counts.visitado || 0;
+  const seguimiento = counts.seguimiento || 0;
+  const noAtendido = counts.no_atendido || 0;
+  const coordinarHora = counts.coordinar_hora || 0;
+  const adminNoDisp = counts.administrador_no_disponible || 0;
 
-  const { count: seguimiento, error: sErr } = await supabase
-    .from("clients")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "seguimiento");
-
-  const { count: noAtendido } = await supabase
-    .from("clients")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "no_atendido");
-
-  const { count: coordinarHora } = await supabase
-    .from("clients")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "coordinar_hora");
-
-  const { count: adminNoDisp } = await supabase
-    .from("clients")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "administrador_no_disponible");
-
-  // Gestionados = all except pendiente
   const gestionados =
-    (visitados || 0) +
-    (seguimiento || 0) +
-    (noAtendido || 0) +
-    (coordinarHora || 0) +
-    (adminNoDisp || 0);
-
+    visitados + seguimiento + noAtendido + coordinarHora + adminNoDisp;
   const avance = total ? Math.round((gestionados / total) * 100) : 0;
 
-  // Visitas de la semana actual
   const startOfWeek = getStartOfWeek();
   const { count: weeklyVisits } = await supabase
     .from("visits")
     .select("*", { count: "exact", head: true })
     .gte("visit_date", startOfWeek);
 
-  // Distribución por estado
   const statusDistribution = [
-    { name: "Pendiente", value: pendientes || 0, color: "#ef4444" },
-    { name: "Visitado", value: visitados || 0, color: "#22c55e" },
-    { name: "Seguimiento", value: seguimiento || 0, color: "#f59e0b" },
-    { name: "No atendido", value: noAtendido || 0, color: "#6b7280" },
-    { name: "Coordinar hora", value: coordinarHora || 0, color: "#a855f7" },
-    {
-      name: "Adm. no disponible",
-      value: adminNoDisp || 0,
-      color: "#3b82f6",
-    },
+    { name: "Pendiente", value: pendientes, color: "#ef4444" },
+    { name: "Visitado", value: visitados, color: "#22c55e" },
+    { name: "Seguimiento", value: seguimiento, color: "#f59e0b" },
+    { name: "No atendido", value: noAtendido, color: "#6b7280" },
+    { name: "Coordinar hora", value: coordinarHora, color: "#a855f7" },
+    { name: "Adm. no disponible", value: adminNoDisp, color: "#3b82f6" },
   ];
 
-  // Avance por zona
+  // 1 query para zones con sus conteos agrupados
   const { data: zoneStats } = await supabase
-    .from("zones")
-    .select("id, name, region");
+    .from("clients")
+    .select("zone_id, status, zones!inner(id, name, region)");
 
-  const zonesWithProgress = [];
+  const zonesWithProgress: {
+    id: string;
+    name: string;
+    region: string;
+    total: number;
+    done: number;
+    pending: number;
+    percentage: number;
+  }[] = [];
+
   if (zoneStats) {
-    for (const zone of zoneStats) {
-      const { count: zoneTotal } = await supabase
-        .from("clients")
-        .select("*", { count: "exact", head: true })
-        .eq("zone_id", zone.id);
+    const zoneMap = new Map<string, { name: string; region: string; total: number; done: number }>();
+    for (const c of zoneStats as unknown as Array<{ zone_id: string; status: string; zones: { id: string; name: string; region: string } }>) {
+      if (!c.zone_id || !c.zones) continue;
+      const existing = zoneMap.get(c.zone_id) || {
+        name: c.zones.name,
+        region: c.zones.region,
+        total: 0,
+        done: 0,
+      };
+      existing.total++;
+      if (c.status !== "pendiente") existing.done++;
+      zoneMap.set(c.zone_id, existing);
+    }
 
-      if (!zoneTotal) continue;
-
-      const { count: zoneDone } = await supabase
-        .from("clients")
-        .select("*", { count: "exact", head: true })
-        .eq("zone_id", zone.id)
-        .neq("status", "pendiente");
-
+    for (const [id, data] of zoneMap) {
       zonesWithProgress.push({
-        id: zone.id,
-        name: zone.name,
-        region: zone.region,
-        total: zoneTotal,
-        done: zoneDone || 0,
-        pending: zoneTotal - (zoneDone || 0),
-        percentage: Math.round(((zoneDone || 0) / zoneTotal) * 100),
+        id,
+        name: data.name,
+        region: data.region,
+        total: data.total,
+        done: data.done,
+        pending: data.total - data.done,
+        percentage: Math.round((data.done / data.total) * 100),
       });
     }
   }
@@ -110,7 +92,7 @@ export async function getDashboardStats() {
     .in("status", ["seguimiento", "coordinar_hora"])
     .order("name");
 
-  // Visitas de esta semana con follow_up_date
+  // Visitas con follow_up
   const { data: followUpVisits } = await supabase
     .from("visits")
     .select("*, client:clients(name, zone:zones(name))")
@@ -128,10 +110,10 @@ export async function getDashboardStats() {
 
   return {
     kpis: {
-      total: total || 0,
-      visitados: visitados || 0,
-      pendientes: pendientes || 0,
-      seguimiento: seguimiento || 0,
+      total,
+      visitados,
+      pendientes,
+      seguimiento,
       gestionados,
       avance,
       weeklyVisits: weeklyVisits || 0,
@@ -148,6 +130,6 @@ function getStartOfWeek(): string {
   const now = new Date();
   const day = now.getDay();
   const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-  const monday = new Date(now.setDate(diff));
+  const monday = new Date(now.getFullYear(), now.getMonth(), diff);
   return monday.toISOString().split("T")[0];
 }

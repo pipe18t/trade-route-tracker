@@ -34,7 +34,7 @@ export function BottomNav() {
   const [open, setOpen] = useState(false);
 
   return (
-    <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-zinc-200 z-50 safe-area-bottom">
+    <nav className="md:hidden fixed bottom-0 inset-x-0 bg-white border-t border-zinc-200 z-50" style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}>
       <div className="flex items-center justify-around h-16 px-1">
         {mainItems.map((item) => {
           const Icon = item.icon;

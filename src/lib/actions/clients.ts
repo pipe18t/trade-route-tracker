@@ -4,6 +4,7 @@ import { createClient as createSupabaseClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import type { Client, Visit } from "@/lib/types/database";
+import { clientSchema } from "@/lib/validations/client.schema";
 
 export async function getClients(filters?: {
   region?: string;
@@ -58,53 +59,90 @@ export async function getClientVisits(clientId: string) {
 export async function createClient(formData: FormData) {
   const supabase = await createSupabaseClient();
 
-  const client = {
+  const raw = {
     name: formData.get("name") as string,
-    address: (formData.get("address") as string) || null,
+    address: (formData.get("address") as string) || undefined,
     region: formData.get("region") as string,
-    comuna: (formData.get("comuna") as string) || null,
-    zone_id: (formData.get("zone_id") as string) || null,
-    executive: (formData.get("executive") as string) || null,
-    visit_day: (formData.get("visit_day") as string) || null,
-    dispatch_day: (formData.get("dispatch_day") as string) || null,
+    comuna: (formData.get("comuna") as string) || undefined,
+    zone_id: (formData.get("zone_id") as string) || undefined,
+    executive: (formData.get("executive") as string) || undefined,
+    visit_day: (formData.get("visit_day") as string) || undefined,
+    dispatch_day: (formData.get("dispatch_day") as string) || undefined,
     priority: (formData.get("priority") as string) || "media",
     status: (formData.get("status") as string) || "pendiente",
-    general_notes: (formData.get("general_notes") as string) || null,
+    general_notes: (formData.get("general_notes") as string) || undefined,
   };
 
-  const { error } = await supabase.from("clients").insert(client);
+  const parsed = clientSchema.safeParse(raw);
+  if (!parsed.success) {
+    const firstError = Object.values(parsed.error.flatten().fieldErrors).flat()[0];
+    return { error: firstError || "Datos inválidos" };
+  }
+
+  const payload = {
+    name: parsed.data.name,
+    address: parsed.data.address || null,
+    region: parsed.data.region,
+    comuna: parsed.data.comuna || null,
+    zone_id: parsed.data.zone_id || null,
+    executive: parsed.data.executive || null,
+    visit_day: parsed.data.visit_day || null,
+    dispatch_day: parsed.data.dispatch_day || null,
+    priority: parsed.data.priority,
+    status: parsed.data.status,
+    general_notes: parsed.data.general_notes || null,
+  };
+
+  const { error } = await supabase.from("clients").insert(payload);
   if (error) return { error: error.message };
 
   revalidatePath("/clientes");
-  redirect("/clientes");
+  return { success: true, redirect: "/clientes" };
 }
 
 export async function updateClient(id: string, formData: FormData) {
   const supabase = await createSupabaseClient();
 
-  const client = {
+  const raw = {
     name: formData.get("name") as string,
-    address: (formData.get("address") as string) || null,
+    address: (formData.get("address") as string) || undefined,
     region: formData.get("region") as string,
-    comuna: (formData.get("comuna") as string) || null,
-    zone_id: (formData.get("zone_id") as string) || null,
-    executive: (formData.get("executive") as string) || null,
-    visit_day: (formData.get("visit_day") as string) || null,
-    dispatch_day: (formData.get("dispatch_day") as string) || null,
+    comuna: (formData.get("comuna") as string) || undefined,
+    zone_id: (formData.get("zone_id") as string) || undefined,
+    executive: (formData.get("executive") as string) || undefined,
+    visit_day: (formData.get("visit_day") as string) || undefined,
+    dispatch_day: (formData.get("dispatch_day") as string) || undefined,
     priority: (formData.get("priority") as string) || "media",
     status: (formData.get("status") as string) || "pendiente",
-    general_notes: (formData.get("general_notes") as string) || null,
+    general_notes: (formData.get("general_notes") as string) || undefined,
   };
 
-  const { error } = await supabase
-    .from("clients")
-    .update(client)
-    .eq("id", id);
+  const parsed = clientSchema.safeParse(raw);
+  if (!parsed.success) {
+    const firstError = Object.values(parsed.error.flatten().fieldErrors).flat()[0];
+    return { error: firstError || "Datos inválidos" };
+  }
+
+  const payload = {
+    name: parsed.data.name,
+    address: parsed.data.address || null,
+    region: parsed.data.region,
+    comuna: parsed.data.comuna || null,
+    zone_id: parsed.data.zone_id || null,
+    executive: parsed.data.executive || null,
+    visit_day: parsed.data.visit_day || null,
+    dispatch_day: parsed.data.dispatch_day || null,
+    priority: parsed.data.priority,
+    status: parsed.data.status,
+    general_notes: parsed.data.general_notes || null,
+  };
+
+  const { error } = await supabase.from("clients").update(payload).eq("id", id);
   if (error) return { error: error.message };
 
   revalidatePath("/clientes");
   revalidatePath(`/clientes/${id}`);
-  redirect("/clientes");
+  return { success: true, redirect: "/clientes" };
 }
 
 export async function deleteClientAction(formData: FormData) {

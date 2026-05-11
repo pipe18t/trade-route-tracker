@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,8 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { createClient } from "@/lib/supabase/client";
+import { createClient, updateClient } from "@/lib/actions/clients";
+import { DAYS, FINAL_STATUS_OPTIONS } from "@/lib/constants";
 import type { Zone } from "@/lib/types/database";
 
 interface ClientFormProps {
@@ -22,19 +23,8 @@ interface ClientFormProps {
   client?: Record<string, unknown>;
 }
 
-const days = [
-  "Lunes",
-  "Martes",
-  "Miércoles",
-  "Jueves",
-  "Viernes",
-  "Sábado",
-  "Domingo",
-];
-
 export function ClientForm({ zones, client }: ClientFormProps) {
   const router = useRouter();
-  const supabase = createClient();
   const [loading, setLoading] = useState(false);
   const isEditing = !!(client?.id);
   const clientId = (client?.id as string) || undefined;
@@ -61,82 +51,46 @@ export function ClientForm({ zones, client }: ClientFormProps) {
     e.preventDefault();
     setLoading(true);
 
-    const payload = {
-      name: formData.name,
-      address: formData.address || null,
-      region: formData.region,
-      comuna: formData.comuna || null,
-      zone_id: formData.zone_id || null,
-      executive: formData.executive || null,
-      visit_day: formData.visit_day || null,
-      dispatch_day: formData.dispatch_day || null,
-      priority: formData.priority,
-      status: formData.status,
-      general_notes: formData.general_notes || null,
-    };
+    const fd = new FormData();
+    Object.entries(formData).forEach(([k, v]) => fd.append(k, v));
 
-    let error = null;
+    const result = isEditing && clientId
+      ? await updateClient(clientId, fd)
+      : await createClient(fd);
 
-    if (isEditing && clientId) {
-      const res = await supabase
-        .from("clients")
-        .update(payload)
-        .eq("id", clientId);
-      error = res.error;
-    } else {
-      const res = await supabase.from("clients").insert(payload);
-      error = res.error;
-    }
-
-    setLoading(false);
-
-    if (error) {
-      toast.error(error.message);
+    if (result?.error) {
+      toast.error(result.error);
+      setLoading(false);
       return;
     }
 
     toast.success(isEditing ? "Cliente actualizado" : "Cliente creado");
-    router.push("/clientes");
+    router.push(result?.redirect || "/clientes");
     router.refresh();
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Datos básicos */}
       <Card>
-        <CardHeader>
-          <CardTitle>Datos básicos</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle>Datos básicos</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="name">Nombre del local *</Label>
-              <Input
-                id="name"
-                value={formData.name}
-                onChange={(e) => update("name", e.target.value)}
-                required
-              />
+              <Input id="name" value={formData.name}
+                onChange={(e) => update("name", e.target.value)} required />
             </div>
             <div className="space-y-2">
               <Label htmlFor="address">Dirección</Label>
-              <Input
-                id="address"
-                value={formData.address}
-                onChange={(e) => update("address", e.target.value)}
-              />
+              <Input id="address" value={formData.address}
+                onChange={(e) => update("address", e.target.value)} />
             </div>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label>Región *</Label>
-              <Select
-                value={formData.region}
-                onValueChange={(v) => update("region", v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar" />
-                </SelectTrigger>
+              <Select value={formData.region} onValueChange={(v) => update("region", v)}>
+                <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="RM">RM</SelectItem>
                   <SelectItem value="V">V</SelectItem>
@@ -145,27 +99,17 @@ export function ClientForm({ zones, client }: ClientFormProps) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="comuna">Comuna</Label>
-              <Input
-                id="comuna"
-                value={formData.comuna}
-                onChange={(e) => update("comuna", e.target.value)}
-              />
+              <Input id="comuna" value={formData.comuna}
+                onChange={(e) => update("comuna", e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>Zona</Label>
-              <Select
-                value={formData.zone_id}
-                onValueChange={(v) => update("zone_id", v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar" />
-                </SelectTrigger>
+              <Select value={formData.zone_id} onValueChange={(v) => update("zone_id", v)}>
+                <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">Sin zona</SelectItem>
                   {zones.map((z) => (
-                    <SelectItem key={z.id} value={z.id}>
-                      {z.name}
-                    </SelectItem>
+                    <SelectItem key={z.id} value={z.id}>{z.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -174,68 +118,39 @@ export function ClientForm({ zones, client }: ClientFormProps) {
         </CardContent>
       </Card>
 
-      {/* Ruta y ejecución */}
       <Card>
-        <CardHeader>
-          <CardTitle>Ruta y ejecución</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle>Ruta y ejecución</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           <div className="grid gap-4 md:grid-cols-4">
             <div className="space-y-2">
               <Label htmlFor="executive">Ejecutivo</Label>
-              <Input
-                id="executive"
-                value={formData.executive}
-                onChange={(e) => update("executive", e.target.value)}
-              />
+              <Input id="executive" value={formData.executive}
+                onChange={(e) => update("executive", e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>Día visita</Label>
-              <Select
-                value={formData.visit_day}
-                onValueChange={(v) => update("visit_day", v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar" />
-                </SelectTrigger>
+              <Select value={formData.visit_day} onValueChange={(v) => update("visit_day", v)}>
+                <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">Sin definir</SelectItem>
-                  {days.map((d) => (
-                    <SelectItem key={d} value={d}>
-                      {d}
-                    </SelectItem>
-                  ))}
+                  {DAYS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label>Día despacho</Label>
-              <Select
-                value={formData.dispatch_day}
-                onValueChange={(v) => update("dispatch_day", v)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Seleccionar" />
-                </SelectTrigger>
+              <Select value={formData.dispatch_day} onValueChange={(v) => update("dispatch_day", v)}>
+                <SelectTrigger><SelectValue placeholder="Seleccionar" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="">Sin definir</SelectItem>
-                  {days.map((d) => (
-                    <SelectItem key={d} value={d}>
-                      {d}
-                    </SelectItem>
-                  ))}
+                  {DAYS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
               <Label>Prioridad</Label>
-              <Select
-                value={formData.priority}
-                onValueChange={(v) => update("priority", v)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+              <Select value={formData.priority} onValueChange={(v) => update("priority", v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="alta">Alta</SelectItem>
                   <SelectItem value="media">Media</SelectItem>
@@ -247,41 +162,25 @@ export function ClientForm({ zones, client }: ClientFormProps) {
         </CardContent>
       </Card>
 
-      {/* Estado */}
       <Card>
-        <CardHeader>
-          <CardTitle>Estado</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle>Estado</CardTitle></CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>Estado actual</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(v) => update("status", v)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+              <Select value={formData.status} onValueChange={(v) => update("status", v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pendiente">Pendiente</SelectItem>
-                  <SelectItem value="visitado">Visitado</SelectItem>
-                  <SelectItem value="seguimiento">Seguimiento</SelectItem>
-                  <SelectItem value="no_atendido">No atendido</SelectItem>
-                  <SelectItem value="coordinar_hora">Coordinar hora</SelectItem>
-                  <SelectItem value="administrador_no_disponible">
-                    Adm. no disponible
-                  </SelectItem>
+                  {FINAL_STATUS_OPTIONS.map((s) => (
+                    <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="notes">Notas generales</Label>
-              <Input
-                id="notes"
-                value={formData.general_notes}
-                onChange={(e) => update("general_notes", e.target.value)}
-              />
+              <Label htmlFor="general_notes">Notas generales</Label>
+              <Input id="general_notes" value={formData.general_notes}
+                onChange={(e) => update("general_notes", e.target.value)} />
             </div>
           </div>
         </CardContent>
@@ -289,19 +188,9 @@ export function ClientForm({ zones, client }: ClientFormProps) {
 
       <div className="flex gap-4">
         <Button type="submit" disabled={loading}>
-          {loading
-            ? "Guardando..."
-            : isEditing
-            ? "Actualizar cliente"
-            : "Crear cliente"}
+          {loading ? "Guardando..." : isEditing ? "Actualizar cliente" : "Crear cliente"}
         </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => router.back()}
-        >
-          Cancelar
-        </Button>
+        <Button type="button" variant="outline" onClick={() => router.back()}>Cancelar</Button>
       </div>
     </form>
   );

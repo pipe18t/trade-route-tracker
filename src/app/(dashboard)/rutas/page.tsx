@@ -7,29 +7,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { ROUTE_STATUS, ROUTE_STATUS_COLORS } from "@/lib/constants";
 import { Plus, MapPin, Trash2, Play, CheckCircle, XCircle } from "lucide-react";
 import Link from "next/link";
 
 export const dynamic = "force-dynamic";
-
-const statusLabels: Record<string, { label: string; className: string }> = {
-  planificada: {
-    label: "Planificada",
-    className: "bg-blue-100 text-blue-800",
-  },
-  en_progreso: {
-    label: "En progreso",
-    className: "bg-amber-100 text-amber-800",
-  },
-  completada: {
-    label: "Completada",
-    className: "bg-green-100 text-green-800",
-  },
-  cancelada: {
-    label: "Cancelada",
-    className: "bg-gray-100 text-gray-800",
-  },
-};
 
 export default async function RutasPage() {
   const routes = await getRoutes();
@@ -70,7 +52,8 @@ export default async function RutasPage() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
           {routes.map((route) => {
-            const status = statusLabels[route.status] || statusLabels.planificada;
+            const label = ROUTE_STATUS[route.status] || route.status;
+            const className = ROUTE_STATUS_COLORS[route.status] || ROUTE_STATUS_COLORS.planificada;
             const clientCount =
               (route.route_clients as unknown[])?.[0] &&
               typeof (route.route_clients as unknown[])[0] === "object"
@@ -97,7 +80,7 @@ export default async function RutasPage() {
                           "Sin zona"}
                       </p>
                     </div>
-                    <Badge className={status.className}>{status.label}</Badge>
+                    <Badge className={className}>{label}</Badge>
                   </div>
                 </CardHeader>
                 <CardContent>

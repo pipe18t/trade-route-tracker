@@ -1,3 +1,8 @@
+import {
+  COMUNA_NORMALIZE,
+  REGION_NORMALIZE,
+} from "@/lib/constants";
+
 export interface ParsedRow {
   name: string;
   address: string;
@@ -7,65 +12,6 @@ export interface ParsedRow {
   visit_day: string;
   dispatch_day: string;
 }
-
-const COMUNA_NORMALIZE: Record<string, string> = {
-  concon: "Concón",
-  quilpue: "Quilpué",
-  maipu: "Maipú",
-  peñalolen: "Peñalolén",
-  peñalolén: "Peñalolén",
-  quilpué: "Quilpué",
-  concón: "Concón",
-  maipú: "Maipú",
-};
-
-const REGION_NORMALIZE: Record<string, string> = {
-  metropolitana: "RM",
-  "región metropolitana": "RM",
-  rm: "RM",
-  "r.m.": "RM",
-  santiago: "RM",
-  v: "V",
-  "quinta región": "V",
-  "v región": "V",
-  valparaiso: "V",
-  valparaíso: "V",
-  "v region": "V",
-  "quinta region": "V",
-};
-
-const ZONE_COMUNA_MAP: Record<string, string[]> = {
-  "Providencia / Manuel Montt / Bilbao": [
-    "providencia",
-    "manuel montt",
-    "bilbao",
-  ],
-  "Ñuñoa / Plaza Ñuñoa": ["ñuñoa", "nuñoa"],
-  "La Reina / Larraín": ["la reina", "larraín", "larrain"],
-  "Las Condes / Vitacura": [
-    "las condes",
-    "vitacura",
-    "lo barnechea",
-    "la dehesa",
-  ],
-  "Santiago Centro / Bellavista": [
-    "santiago",
-    "santiago centro",
-    "bellavista",
-    "recoleta",
-    "independencia",
-    "estación central",
-    "estacion central",
-  ],
-  "Viña del Mar": ["viña del mar", "viña"],
-  Valparaíso: ["valparaíso", "valparaiso"],
-  "Reñaca / Concón": ["reñaca", "renaca", "concón", "concon"],
-  "Quilpué / Villa Alemana": [
-    "quilpué",
-    "quilpue",
-    "villa alemana",
-  ],
-};
 
 function normalizeComuna(comuna: string): string {
   const key = comuna.trim().toLowerCase();
@@ -95,7 +41,6 @@ export function parseCSV(text: string): ParsedRow[] {
     .filter(Boolean);
   if (lines.length < 2) return [];
 
-  // Detect delimiter
   const firstLine = lines[0];
   const delimiter = firstLine.includes("\t")
     ? "\t"
@@ -129,10 +74,10 @@ export function parseCSV(text: string): ParsedRow[] {
       h.includes("cliente") || h === "nombre" || h === "local" || h === "name"
   );
   const regionIdx = headers.findIndex(
-    (h) => h === "región" || h === "region" || h === "region"
+    (h) => h === "región" || h === "region"
   );
   const comunaIdx = headers.findIndex(
-    (h) => h === "comuna" || h === "comuna"
+    (h) => h === "comuna"
   );
   const execIdx = headers.findIndex(
     (h) =>
@@ -147,23 +92,26 @@ export function parseCSV(text: string): ParsedRow[] {
       h.includes("despacho") || h === "dispatch" || h === "dispatch_day"
   );
 
+  if (nameIdx === -1) return [];
+
   const rows: ParsedRow[] = [];
 
   for (let i = 1; i < lines.length; i++) {
     const values = parseLine(lines[i]);
-    const rawName = nameIdx >= 0 ? values[nameIdx] || "" : "";
+    if (values.length <= nameIdx) continue;
+    const rawName = values[nameIdx] || "";
     const { name, address } = splitNameAddress(rawName);
-    const comuna = comunaIdx >= 0 ? normalizeComuna(values[comunaIdx] || "") : "";
-    const region = regionIdx >= 0 ? normalizeRegion(values[regionIdx] || "") : "";
+    const comuna = comunaIdx >= 0 && comunaIdx < values.length ? normalizeComuna(values[comunaIdx] || "") : "";
+    const region = regionIdx >= 0 && regionIdx < values.length ? normalizeRegion(values[regionIdx] || "") : "";
 
     rows.push({
       name,
       address,
       region,
       comuna,
-      executive: execIdx >= 0 ? values[execIdx] || "" : "",
-      visit_day: visitIdx >= 0 ? values[visitIdx] || "" : "",
-      dispatch_day: dispatchIdx >= 0 ? values[dispatchIdx] || "" : "",
+      executive: execIdx >= 0 && execIdx < values.length ? values[execIdx] || "" : "",
+      visit_day: visitIdx >= 0 && visitIdx < values.length ? values[visitIdx] || "" : "",
+      dispatch_day: dispatchIdx >= 0 && dispatchIdx < values.length ? values[dispatchIdx] || "" : "",
     });
   }
 

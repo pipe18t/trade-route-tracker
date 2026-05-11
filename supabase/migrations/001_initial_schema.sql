@@ -183,7 +183,10 @@ create policy "Users can delete own visits" on public.visits for delete using (a
 -- Visit photos
 alter table public.visit_photos enable row level security;
 create policy "Authenticated users can read photos" on public.visit_photos for select using (auth.role() = 'authenticated');
-create policy "Authenticated users can insert photos" on public.visit_photos for insert with check (auth.role() = 'authenticated');
+create policy "Authenticated users can insert visit photos" on public.visit_photos for insert with check (
+  auth.role() = 'authenticated' and
+  exists (select 1 from public.visits where visits.id = visit_photos.visit_id and visits.user_id = auth.uid())
+);
 create policy "Users can delete own visit photos" on public.visit_photos for delete using (
   exists (select 1 from public.visits where visits.id = visit_photos.visit_id and visits.user_id = auth.uid())
 );
@@ -208,13 +211,12 @@ create policy "Users can delete own route_clients" on public.route_clients for d
 -- ============================================
 -- STORAGE BUCKET
 -- ============================================
--- Run this in Supabase SQL Editor or via Dashboard:
--- insert into storage.buckets (id, name, public) values ('visit-photos', 'visit-photos', true);
+-- Bucket created via Management API. Run policies below:
 
--- Storage policies (run after bucket is created):
--- create policy "Public can view visit photos" on storage.objects for select using (bucket_id = 'visit-photos');
--- create policy "Authenticated users can upload visit photos" on storage.objects for insert with check (bucket_id = 'visit-photos' and auth.role() = 'authenticated');
--- create policy "Users can delete own visit photos" on storage.objects for delete using (bucket_id = 'visit-photos' and auth.uid() = owner);
+-- Storage policies
+create policy "Public can view visit photos" on storage.objects for select using (bucket_id = 'visit-photos');
+create policy "Authenticated users can upload visit photos" on storage.objects for insert with check (bucket_id = 'visit-photos' and auth.role() = 'authenticated');
+create policy "Users can delete own visit photos" on storage.objects for delete using (bucket_id = 'visit-photos' and auth.uid() = owner);
 
 -- ============================================
 -- INDEXES

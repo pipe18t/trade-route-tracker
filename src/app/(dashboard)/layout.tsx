@@ -2,20 +2,28 @@ import { verifySession } from "@/lib/dals";
 import { Sidebar } from "@/components/layout/sidebar";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Button } from "@/components/ui/button";
-import { buttonVariants } from "@/components/ui/button";
-import { Menu, LogOut, MapPin } from "lucide-react";
-import Link from "next/link";
-import { cn } from "@/lib/utils";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
+import Link from "next/link";
+import {
+  LayoutDashboard,
+  Users,
+  MapPin,
+  FileText,
+  Upload,
+  Settings,
+  LogOut,
+  Menu,
+} from "lucide-react";
 
 const navItems = [
-  { href: "/dashboard", label: "Dashboard", icon: "LayoutDashboard" },
-  { href: "/clientes", label: "Clientes" },
-  { href: "/rutas", label: "Rutas" },
-  { href: "/reportes/semanal", label: "Reportes" },
-  { href: "/importar", label: "Importar" },
-  { href: "/configuracion/zonas", label: "Zonas" },
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/clientes", label: "Clientes", icon: Users },
+  { href: "/rutas", label: "Rutas", icon: MapPin },
+  { href: "/reportes/semanal", label: "Reportes", icon: FileText },
+  { href: "/importar", label: "Importar", icon: Upload },
+  { href: "/configuracion/zonas", label: "Zonas", icon: Settings },
 ];
 
 export default async function DashboardLayout({
@@ -48,17 +56,21 @@ export default async function DashboardLayout({
                 <span className="font-bold">TradeRoute</span>
               </div>
               <Separator className="bg-zinc-800" />
-              <nav className="flex-1 space-y-1 py-4">
-                {navItems.map((item) => (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
-                  >
-                    {item.label}
-                  </Link>
-                ))}
-              </nav>
+               <nav className="flex-1 space-y-1 py-4">
+                 {navItems.map((item) => {
+                   const Icon = item.icon;
+                   return (
+                     <Link
+                       key={item.href}
+                       href={item.href}
+                       className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-zinc-300 hover:text-white hover:bg-zinc-800 transition-colors"
+                     >
+                       <Icon className="h-5 w-5" />
+                       {item.label}
+                     </Link>
+                   );
+                 })}
+               </nav>
               <Separator className="bg-zinc-800" />
               <div className="py-4">
                 <p className="text-sm font-medium px-3">{profile.full_name || "Usuario"}</p>

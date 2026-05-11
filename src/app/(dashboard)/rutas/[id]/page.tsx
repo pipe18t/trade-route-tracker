@@ -13,19 +13,12 @@ import {
   XCircle,
   Trash2,
   ArrowLeft,
-  ExternalLink,
   Navigation,
 } from "lucide-react";
+import { ROUTE_STATUS } from "@/lib/constants";
 import type { ClientStatus } from "@/lib/types/database";
 
 export const dynamic = "force-dynamic";
-
-const statusLabels: Record<string, string> = {
-  planificada: "Planificada",
-  en_progreso: "En progreso",
-  completada: "Completada",
-  cancelada: "Cancelada",
-};
 
 export default async function RouteDetailPage({
   params,
@@ -77,7 +70,7 @@ export default async function RouteDetailPage({
           <h1 className="text-3xl font-bold">{route.name}</h1>
           <div className="flex items-center gap-2 mt-1">
             <Badge className="bg-blue-100 text-blue-800">
-              {statusLabels[route.status] || route.status}
+              {ROUTE_STATUS[route.status] || route.status}
             </Badge>
             {(route.zone as { name?: string } | null)?.name && (
               <span className="text-sm text-muted-foreground">

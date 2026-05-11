@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { generateWeeklyReport } from "@/lib/actions/reports";
+import { STATUS_LABELS, getStartOfWeek } from "@/lib/constants";
 import {
   Copy,
   FileText,
@@ -63,18 +64,10 @@ interface VisitData {
   };
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  visitado: "Visitado",
-  seguimiento: "Seguimiento",
-  no_atendido: "No atendido",
-  coordinar_hora: "Coordinar hora",
-  administrador_no_disponible: "Adm. no disponible",
-};
-
 export default function ReporteSemanalPage() {
   const [zones, setZones] = useState<{ id: string; name: string }[]>([]);
   const [filters, setFilters] = useState({
-    startDate: getMonday(),
+      startDate: getStartOfWeek(),
     endDate: new Date().toISOString().split("T")[0],
     region: "RM",
     zoneId: "all",
@@ -89,14 +82,6 @@ export default function ReporteSemanalPage() {
       .order("name")
       .then(({ data }) => setZones(data || []));
   }, []);
-
-  function getMonday() {
-    const now = new Date();
-    const day = now.getDay();
-    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
-    const monday = new Date(now.getFullYear(), now.getMonth(), diff);
-    return monday.toISOString().split("T")[0];
-  }
 
   async function handleGenerate() {
     setLoading(true);
