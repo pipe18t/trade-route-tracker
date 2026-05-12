@@ -1,127 +1,136 @@
-# API y Rutas — Trade Route Tracker
+# API y Rutas - Trade Route Tracker
 
-## Rutas de la aplicación
+## Alcance
 
-### Páginas (Server Components o Client Components)
+Esta aplicacion casi no expone API REST de negocio.
+El dominio funcional se implementa principalmente con Server Actions.
 
-| Ruta | Tipo | Auth | Descripción |
+## Endpoints HTTP reales
+
+### `GET /auth/callback`
+
+Intercambia `code` de Supabase Auth por sesion y redirige.
+
+- Query params:
+  - `code` (obligatorio)
+  - `next` (opcional, default `/dashboard`)
+- Respuesta:
+  - `302` a `/dashboard` o al `next` indicado.
+  - `302` a `/login?error=oauth_callback_failed` en error.
+
+### `POST /api/auth/logout`
+
+Cierra sesion en Supabase y redirige.
+
+- Respuesta:
+  - `302` a `/login`.
+
+## Rutas de UI
+
+| Ruta | Tipo | Protegida | Fuente |
 |---|---|---|---|
-| `/` | redirect | No | Redirige a `/dashboard` |
-| `/login` | page (client) | No | Google OAuth + magic link |
-| `/dashboard` | page (server) | Sí | KPIs, distribución, avance por zona |
-| `/clientes` | page (server) | Sí | Cartera con filtros via searchParams |
-| `/clientes/nuevo` | page (server) | Sí | Formulario crear cliente |
-| `/clientes/[id]` | page (server) | Sí | Ficha del local |
-| `/clientes/[id]/editar` | page (server) | Sí | Formulario editar cliente |
-| `/clientes/[id]/nueva-visita` | page (server) | Sí | Formulario registrar visita |
-| `/rutas` | page (server) | Sí | Lista de rutas |
-| `/rutas/nueva` | page (client) | Sí | Crear ruta |
-| `/rutas/[id]` | page (server) | Sí | Detalle de ruta |
-| `/reportes/semanal` | page (client) | Sí | Generador de minuta semanal |
-| `/importar` | page (client) | Sí | Importación CSV |
-| `/configuracion/zonas` | page (server) | Sí | CRUD de zonas |
-| `/panel` | page (server) | Sí | Panel técnico (DB, rutas, stack) |
+| `/` | redirect | No | `src/app/page.tsx` |
+| `/login` | client page | No | `src/app/(auth)/login/page.tsx` |
+| `/dashboard` | server page | Si | `src/app/(dashboard)/dashboard/page.tsx` |
+| `/clientes` | server page | Si | `src/app/(dashboard)/clientes/page.tsx` |
+| `/clientes/nuevo` | server page | Si | `src/app/(dashboard)/clientes/nuevo/page.tsx` |
+| `/clientes/[id]` | server page | Si | `src/app/(dashboard)/clientes/[id]/page.tsx` |
+| `/clientes/[id]/editar` | server page | Si | `src/app/(dashboard)/clientes/[id]/editar/page.tsx` |
+| `/clientes/[id]/nueva-visita` | server page | Si | `src/app/(dashboard)/clientes/[id]/nueva-visita/page.tsx` |
+| `/rutas` | server page | Si | `src/app/(dashboard)/rutas/page.tsx` |
+| `/rutas/nueva` | client page | Si | `src/app/(dashboard)/rutas/nueva/page.tsx` |
+| `/rutas/[id]` | server page | Si | `src/app/(dashboard)/rutas/[id]/page.tsx` |
+| `/reportes/semanal` | client page | Si | `src/app/(dashboard)/reportes/semanal/page.tsx` |
+| `/importar` | client page | Si | `src/app/(dashboard)/importar/page.tsx` |
+| `/configuracion/zonas` | server page | Si | `src/app/(dashboard)/configuracion/zonas/page.tsx` |
+| `/panel` | server page | Si | `src/app/(dashboard)/panel/page.tsx` |
 
-### API Endpoints (Route Handlers)
+## Auth guard de rutas
 
-#### `GET /auth/callback`
+- `src/proxy.ts` permite rutas publicas:
+  - `/login`
+  - `/auth/callback`
+  - `/_next`
+  - `/api/auth`
+- Cualquier otra ruta requiere usuario autenticado.
 
-Intercambia código OTP/OAuth por sesión de Supabase.
+## Server Actions (contrato interno)
 
-**Query params:**
+### `src/lib/actions/auth.ts`
 
-| Parámetro | Tipo | Requerido | Descripción |
-|---|---|---|---|
-| `code` | string | Sí | Código de one-time password o OAuth |
-| `next` | string | No | Ruta de redirección tras login (default: `/dashboard`) |
-
-**Respuestas:**
-
-| Código | Descripción |
-|---|---|
-| 302 | Redirige a `/login?error=oauth_callback_failed` si falla |
-| 302 | Redirige a `{next}` si éxito |
-
-#### `POST /api/auth/logout`
-
-Cierra la sesión de Supabase.
-
-**Respuestas:**
-
-| Código | Descripción |
-|---|---|
-| 302 | Redirige a `/login` |
-
-## Server Actions
-
-Todas las mutaciones de datos se realizan mediante Server Actions (`"use server"`), no mediante endpoints REST. Se invocan desde Client Components vía `action={serverAction}` o llamadas directas.
+| Funcion | Entrada | Salida |
+|---|---|---|
+| `logout` | - | `redirect("/login")` |
 
 ### `src/lib/actions/clients.ts`
 
-| Función | Parámetros | Retorna |
+| Funcion | Entrada | Salida |
 |---|---|---|
-| `getClients` | `filters?: { region?, comuna?, zone_id?, status?, priority?, search?, visit_day? }` | `Client[]` |
-| `getClient` | `id: string` | `Client \| null` |
-| `getClientVisits` | `clientId: string` | `Visit[]` |
-| `createClient` | `formData: FormData` | `{ error } \| { success, redirect }` |
-| `updateClient` | `id: string, formData: FormData` | `{ error } \| { success, redirect }` |
-| `deleteClientAction` | `formData: FormData` | `void` (redirect) |
+| `getClients` | filtros opcionales (`region`, `comuna`, `zone_id`, `status`, `priority`, `search`, `visit_day`) | clientes |
+| `getClient` | `id` | cliente o `null` |
+| `getClientVisits` | `clientId` | visitas del cliente |
+| `createClient` | `FormData` | `{ success, redirect }` o `{ error }` |
+| `updateClient` | `id`, `FormData` | `{ success, redirect }` o `{ error }` |
+| `deleteClientAction` | `FormData` (`id`) | elimina + redirect |
 
 ### `src/lib/actions/visits.ts`
 
-| Función | Parámetros | Retorna |
+| Funcion | Entrada | Salida |
 |---|---|---|
-| `createVisit` | `formData: FormData` | `{ error } \| { success, visitId }` |
-| `uploadVisitPhotos` | `visitId: string, clientId: string, files: { file: File, photoType: string }[]` | `void` |
-| `getVisitPhotos` | `clientId: string` | `VisitPhoto[]` |
+| `createVisit` | `FormData` | `{ success, visitId }` o `{ error }` |
+| `uploadVisitPhotos` | `visitId`, `clientId`, `files[]` | `void` (lanza error si falla) |
+| `getVisitPhotos` | `clientId` | fotos |
 
 ### `src/lib/actions/zones.ts`
 
-| Función | Parámetros | Retorna |
+| Funcion | Entrada | Salida |
 |---|---|---|
-| `getZones` | — | `Zone[]` |
-| `createZone` | `formData: FormData` | `void` |
-| `updateZone` | `id: string, formData: FormData` | `void` |
-| `deleteZone` | `id: string` | `void` |
+| `getZones` | - | zonas |
+| `createZone` | `FormData` | `void` |
+| `updateZone` | `id`, `FormData` | `void` |
+| `deleteZone` | `id` | `void` |
 
 ### `src/lib/actions/routes.ts`
 
-| Función | Parámetros | Retorna |
+| Funcion | Entrada | Salida |
 |---|---|---|
-| `getRoutes` | — | `Route[]` |
-| `getRouteWithClients` | `id: string` | `Route & { clients }` |
-| `createRoute` | `formData: FormData` | `void` (redirect) |
-| `updateRouteStatus` | `id: string, status: string` | `void` |
-| `deleteRoute` | `id: string` | `void` |
-| `getPendingClientsForZone` | `zoneId: string` | `Client[]` |
-| `getPendingClientsForRegion` | `region: string` | `Client[]` |
+| `getRoutes` | - | rutas con zona + conteo |
+| `getRouteWithClients` | `id` | ruta + clientes asociados |
+| `createRoute` | `FormData` | inserta + redirect |
+| `updateRouteStatus` | `id`, `status` | `void` |
+| `deleteRoute` | `id` | `void` |
+| `getPendingClientsForZone` | `zoneId` | clientes pendientes |
+| `getPendingClientsForRegion` | `region` | clientes pendientes |
+
+Nota: la pagina `/rutas/nueva` actual no usa `createRoute`; hoy inserta con cliente Supabase en browser.
 
 ### `src/lib/actions/dashboard.ts`
 
-| Función | Parámetros | Retorna |
+| Funcion | Entrada | Salida |
 |---|---|---|
-| `getDashboardStats` | — | `{ kpis, statusDistribution, zonesWithProgress, upcomingFollowUps, followUpVisits, recentVisits }` |
+| `getDashboardStats` | - | KPIs + distribucion + progreso zonas + seguimientos + visitas recientes |
 
 ### `src/lib/actions/reports.ts`
 
-| Función | Parámetros | Retorna |
+| Funcion | Entrada | Salida |
 |---|---|---|
-| `generateWeeklyReport` | `startDate, endDate, region, zoneId` | `{ startDate, endDate, userName, region, zones, stats, visits, opportunities, followUps }` |
+| `generateWeeklyReport` | `startDate`, `endDate`, `region`, `zoneId` | estructura de reporte semanal |
 
 ### `src/lib/actions/import.ts`
 
-| Función | Parámetros | Retorna |
+| Funcion | Entrada | Salida |
 |---|---|---|
-| `importClients` | `clients: ClientImport[]` | `{ imported, skipped, errors }` |
+| `importClients` | arreglo de clientes parseados | `{ imported, skipped, errors }` |
 
-## Manejo de errores
+## OpenAPI
 
-Los Server Actions retornan `{ error: string }` en caso de fallo. Los Server Components lanzan errores que son capturados por `error.tsx` (error boundary).
+El repositorio incluye `openapi.yaml` y `openapi.json` como referencia documental para rutas de UI y auth.
+No reemplaza el contrato interno de Server Actions.
 
-Errores comunes:
+## Errores y respuesta esperada
 
-| Código | Causa | Solución |
-|---|---|---|
-| `42501` | Sin permisos PostgreSQL (falta GRANT) | Ejecutar grants en SQL Editor |
-| `PGRST116` | RLS bloquea la consulta | Verificar políticas y sesión |
-| `23505` | Violación de unique constraint | Cliente duplicado (nombre + comuna) |
+- Server Actions de formularios retornan `{ error: string }` para errores de validacion/DB.
+- Errores no controlados en Server Components caen en `src/app/(dashboard)/error.tsx`.
+- Errores de RLS/DB comunes:
+  - `42501` permisos insuficientes
+  - `23505` duplicado por constraint

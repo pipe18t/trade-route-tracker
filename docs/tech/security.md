@@ -1,75 +1,80 @@
-# Seguridad — Trade Route Tracker
+# Seguridad - Trade Route Tracker
 
-## Autenticación
+## Modelo de seguridad actual
 
-- **Supabase Auth** gestiona el flujo completo (OAuth, sesiones, refresh tokens)
-- **Sin contraseñas**: solo Google OAuth y magic link
-- **proxy.ts** verifica cookies en cada request (capa optimista)
-- **verifySession()** en DAL verifica contra Supabase (capa real)
-- **RLS** en PostgreSQL como última barrera
+La seguridad se apoya en tres capas:
 
-## Autorización (RLS)
+1. Guard de rutas en `src/proxy.ts`.
+2. Validacion de sesion en servidor (`verifySession()` en `src/lib/dals.ts`).
+3. RLS en PostgreSQL/Supabase para control de filas.
 
-| Tabla | SELECT | INSERT | UPDATE | DELETE |
-|---|---|---|---|---|
-| profiles | `true` | `auth.uid() = id` | `auth.uid() = id` | — |
-| zones | `true` | auth req | auth req | auth req |
-| clients | `true` | auth req | auth req | auth req |
-| visits | `true` | own user_id | own user_id | own user_id |
-| visit_photos | `true` | visit ownership | — | visit ownership |
-| routes | `true` | own user_id | own user_id | own user_id |
-| route_clients | `true` | route ownership | — | route ownership |
+## Autenticacion
 
-## Validación de inputs
+- UI activa: Google OAuth.
+- Callback: `GET /auth/callback` con `exchangeCodeForSession`.
+- Logout: `POST /api/auth/logout`.
 
-- **Zod** en todos los Server Actions (`visitSchema`, `clientSchema`)
-- Validate on server, never trust client input
-- `FormData` parseado y validado antes de cualquier inserción
+Magic Link y GitHub existen a nivel de codigo en login, pero no estan habilitados en la interfaz actual.
 
-## Protección contra ataques comunes
+## Autorizacion (RLS)
 
-| Ataque | Protección |
-|---|---|
-| CSRF | Next.js Server Actions incluyen CSRF protection nativa |
-| XSS | React escapa por defecto; Supabase storage URLs son del dominio de Supabase |
-| SQL Injection | Supabase JS client usa consultas parametrizadas; no hay SQL raw en el código |
-| Inyección CSV | `csv-parser.ts` valida estructura antes de insertar |
-| Path traversal | No se usa sistema de archivos del servidor para uploads (Supabase Storage) |
-| Rate limiting | No implementado en esta versión (Vercel + Supabase tienen límites por defecto) |
+RLS esta habilitado en `profiles`, `zones`, `clients`, `visits`, `visit_photos`, `routes`, `route_clients`.
 
-## Manejo de credenciales
+Patrones relevantes:
 
-- `.env.local` contiene solo claves públicas (`NEXT_PUBLIC_*`)
-- `service_role` key no está en el código ni en variables de entorno del frontend
-- `.gitignore` excluye `.env*`
-- Las credenciales de Vercel se configuran en el dashboard (no en el repo)
+- Lectura global (`USING (true)`) en casi todas las tablas.
+- Escritura condicionada por `auth.uid()` para recursos con ownership.
+- En `zones/clients`, cualquier autenticado puede insertar/editar/eliminar.
 
-## Superficie de ataque
+## Validacion de entrada
 
-### Endpoints expuestos sin auth
+- Zod para formularios criticos (`client.schema.ts`, `visit.schema.ts`).
+- Parser CSV valida estructura basica antes de insertar.
+- Upload de fotos requiere tipo seleccionado por UI, pero no hay validacion dura de MIME/tamano en servidor.
 
-| Ruta | Método | Riesgo |
-|---|---|---|
-| `/login` | GET | Ninguno (solo renderiza UI) |
-| `/auth/callback` | GET | Bajo (requiere código OTP/OAuth válido de Supabase) |
+## Exposicion de superficie
 
-### Endpoints con auth
+### Endpoints publicos
 
-Todas las rutas bajo `(dashboard)` requieren sesión verificada.
+- `GET /login`
+- `GET /auth/callback`
 
-## Riesgos detectados
+### Endpoints privados o de sesion
 
-1. **Sin rate limiting**: Un usuario autenticado podría hacer muchas requests. Mitigado parcialmente por límites de Supabase.
-2. **Sin compresión de imágenes**: Fotos de celular se suben sin resize. Riesgo de almacenamiento, no de seguridad.
-3. **Storage bucket público**: Las fotos son accesibles por URL pública. Por diseño (necesario para mostrarlas en la UI).
-4. **Sin sanitización de nombres de archivo**: Los nombres de archivo de foto se preservan. Podrían contener caracteres especiales, pero Supabase Storage los maneja.
-5. **CSV sin límite de tamaño**: Archivos muy grandes podrían causar problemas de memoria en el parser. No hay límite de upload size en el input.
+- `POST /api/auth/logout`
+- Todas las rutas bajo `(dashboard)`.
 
-## Mejoras de seguridad recomendadas
+## Datos y secretos
 
-1. Agregar rate limiting con `@upstash/ratelimit` o similar
-2. Comprimir imágenes antes del upload (canvas resize)
-3. Agregar límite de tamaño al input de CSV (`accept` + validación)
-4. Implementar `Content-Security-Policy` headers
-5. Rotar tokens de Supabase periódicamente
-6. Agregar logging de errores de autenticación
+- Solo se usan keys publicas de Supabase en runtime app (`NEXT_PUBLIC_*`).
+- No se usa `service_role` en codigo del repo.
+- `.env*` esta ignorado por Git.
+
+## Riesgos tecnicos observables
+
+1. **Lectura global en RLS**
+   - Cualquier usuario autenticado puede leer toda la data de negocio.
+   - Si se requiere segmentacion por equipo/tenant, falta politica de aislamiento.
+
+2. **Bucket publico de fotos**
+   - `visit-photos` es publico por diseno; las URLs son accesibles con enlace directo.
+
+3. **Sin rate limiting de aplicacion**
+   - No hay limitacion explicita para acciones o uploads.
+
+4. **Sin limites de tamano/MIME de upload en servidor**
+   - Puede impactar costos y estabilidad.
+
+5. **Grants amplios en migracion**
+   - Se aplica `GRANT ALL` a `anon` y `authenticated`; la seguridad depende de RLS bien definido.
+
+6. **Politicas de storage recreadas de forma global**
+   - La migracion limpia policies en `storage.objects`; en proyectos con mas buckets puede ser riesgoso.
+
+## Recomendaciones priorizadas
+
+1. Definir politicas de lectura por ownership/equipo si aplica modelo multiusuario estricto.
+2. Agregar validacion server-side de tamano y tipo de imagen antes de upload.
+3. Incorporar rate limiting en acciones sensibles.
+4. Revisar/ajustar estrategia de grants para reducir privilegios por defecto.
+5. Evaluar bucket privado + signed URLs si las fotos requieren confidencialidad.

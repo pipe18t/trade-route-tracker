@@ -1,116 +1,70 @@
-# Testing — Trade Route Tracker
+# Testing - Trade Route Tracker
 
 ## Estado actual
 
-**No se han implementado tests automatizados.** El MVP se validó con build verification (`npx tsc --noEmit` + `npm run build`) y pruebas manuales de los flujos principales.
+No hay tests automatizados configurados en `package.json`.
 
-## Frameworks recomendados
+Validaciones actuales en flujo de desarrollo:
 
-| Herramienta | Propósito |
+- `npm run build`
+- `npm run lint`
+- pruebas manuales de rutas principales
+
+## Riesgo actual
+
+Al no existir suite automatizada, hay mayor riesgo de regresiones en:
+
+- formularios complejos (`VisitForm`, `ClientForm`)
+- importacion CSV
+- RLS/flujo de rutas con Supabase
+
+## Cobertura actual (estimada)
+
+| Area | Estado |
 |---|---|
-| **Vitest** | Unit + integration tests |
-| **@testing-library/react** | Component tests |
-| **Playwright** | E2E tests |
-| **MSW** | API mocking (Supabase) |
+| Type checking | Parcial (durante build) |
+| Lint | Disponible |
+| Unit tests | 0% |
+| Integration tests | 0% |
+| E2E tests | 0% |
 
-## Cómo ejecutar tests (cuando se implementen)
+## Prioridades de testing
 
-```bash
-# Unit tests
-npm test
+### 1) Unit tests
 
-# E2E tests
-npm run test:e2e
+- `src/lib/utils/csv-parser.ts`
+- `src/lib/validations/client.schema.ts`
+- `src/lib/validations/visit.schema.ts`
+- helpers de constantes/normalizacion
 
-# Coverage
-npm run test:coverage
-```
+### 2) Integration tests (Server Actions)
 
-## Áreas prioritarias para testing
+- `createClient` / `updateClient`
+- `createVisit` + comportamiento de error
+- `importClients` (duplicados + mapeo zona)
+- `generateWeeklyReport` con filtros
 
-### 1. Server Actions (crítico)
+### 3) E2E
 
-```typescript
-// tests/actions/clients.test.ts (ejemplo)
-import { createClient } from "@/lib/actions/clients";
+Flujos minimos sugeridos:
 
-test("createClient valida nombre requerido", async () => {
-  const fd = new FormData();
-  // sin nombre → debe fallar
-  const result = await createClient(fd);
-  expect(result.error).toBeDefined();
-});
-```
+1. Login con Google -> dashboard.
+2. Crear cliente -> ver en listado.
+3. Registrar visita con estado final -> verificar estado actualizado del cliente.
+4. Crear ruta y abrir detalle.
+5. Importar CSV y validar conteo de importados/omitidos.
 
-### 2. CSV Parser
+## Propuesta de stack
 
-```typescript
-// tests/utils/csv-parser.test.ts (ejemplo)
-import { parseCSV } from "@/lib/utils/csv-parser";
+- Unit/integration: Vitest.
+- Componentes React: Testing Library.
+- E2E: Playwright.
+- Mocking de Supabase: MSW o doubles de cliente.
 
-test("parsea nombre;dirección correctamente", () => {
-  const csv = `"Clientes";"Región"
-"Calabria ; General Del Canto 45";"RM"`;
-  const result = parseCSV(csv);
-  expect(result[0].name).toBe("Calabria");
-  expect(result[0].address).toBe("General Del Canto 45");
-});
-```
+## Plan incremental recomendado
 
-### 3. Validación Zod
-
-```typescript
-// tests/validations/visit.test.ts (ejemplo)
-import { visitSchema } from "@/lib/validations/visit.schema";
-
-test("could_talk=false requiere no_contact_reason", () => {
-  const result = visitSchema.safeParse({
-    client_id: "uuid",
-    visit_date: "2026-01-01",
-    could_talk: false,
-    final_status: "visitado",
-  });
-  expect(result.success).toBe(false);
-});
-```
-
-### 4. Componentes UI
-
-```typescript
-// tests/components/status-badge.test.tsx (ejemplo)
-import { render } from "@testing-library/react";
-import { StatusBadge } from "@/components/shared/status-badge";
-
-test("muestra label correcto para visitado", () => {
-  const { getByText } = render(<StatusBadge status="visitado" />);
-  expect(getByText("Visitado")).toBeDefined();
-});
-```
-
-### 5. Flujos E2E
-
-```
-1. Login → Dashboard con KPIs visibles
-2. Clientes → Filtrar por zona → Ver tabla
-3. Cliente detail → Registrar visita → Ver en historial
-4. Rutas → Crear ruta → Ver en Google Maps
-5. Reportes → Generar → Copiar al portapapeles
-```
-
-## Cobertura actual
-
-| Área | Cobertura |
-|---|---|
-| TypeScript types | ✅ Compilación estricta |
-| Build verification | ✅ `npm run build` |
-| Unit tests | ❌ 0% |
-| Integration tests | ❌ 0% |
-| E2E tests | ❌ 0% |
-| Manual testing | ✅ Flujos principales |
-
-## Plan de testing recomendado
-
-1. **Fase 1**: Unit tests para Server Actions y Zod schemas (mayor ROI)
-2. **Fase 2**: Component tests para formularios complejos (VisitForm, ClientForm)
-3. **Fase 3**: E2E tests para flujos críticos (login, visita, reporte)
-4. **Fase 4**: Coverage target > 70%
+1. Montar Vitest + Testing Library.
+2. Cubrir parser CSV y schemas Zod.
+3. Cubrir Server Actions criticas.
+4. Agregar smoke E2E para rutas clave.
+5. Definir umbral inicial (ej. 50%) y subir progresivamente.

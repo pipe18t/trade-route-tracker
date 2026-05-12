@@ -1,142 +1,88 @@
-# Guía de Desarrollo — Trade Route Tracker
+# Guia de Desarrollo - Trade Route Tracker
+
+## Stack real del repositorio
+
+- Next.js 16 App Router
+- TypeScript strict
+- Supabase (`@supabase/ssr`, `@supabase/supabase-js`)
+- Tailwind CSS v4 + componentes Base UI/shadcn
+- Zod para validacion de payloads
+
+## Estructura de trabajo
+
+```text
+src/app                 rutas y layouts
+src/components          UI y formularios
+src/lib/actions         Server Actions por dominio
+src/lib/validations     schemas Zod
+src/lib/supabase        cliente server/browser
+src/lib/dals.ts         verifySession
+src/proxy.ts            auth guard
+supabase/migrations     esquema SQL
+```
 
 ## Convenciones
 
-### Nombres
+- Archivos: `kebab-case`.
+- Componentes React: `PascalCase`.
+- Funciones: `camelCase`.
+- Server Actions: verbo + sustantivo (`createClient`, `createVisit`, etc.).
+- Tipos de dominio en `src/lib/types/database.ts`.
 
-| Regla | Ejemplo |
-|---|---|
-| Archivos: kebab-case | `client-form.tsx`, `google-maps-button.tsx` |
-| Componentes: PascalCase | `ClientForm`, `StatusBadge` |
-| Funciones: camelCase | `getClients`, `createVisit` |
-| Server Actions: verbo + sustantivo | `createClient`, `updateRouteStatus` |
-| Tipos: PascalCase con sufijo descriptivo | `ClientStatus`, `VisitFormData` |
-| Constantes: UPPER_SNAKE_CASE | `STATUS_LABELS`, `POP_MATERIALS` |
+## Patrones recomendados
 
-### Estructura de archivos
+### Datos y mutaciones
 
-```
-src/
-├── app/              # Rutas (Next.js file-based routing)
-│   ├── (auth)/       # Route group: páginas públicas
-│   ├── (dashboard)/  # Route group: páginas protegidas
-│   └── api/          # API routes (mínimo)
-├── components/       # Componentes React
-│   ├── ui/           # shadcn/ui (autogenerado, NO modificar)
-│   ├── shared/       # Reutilizables cross-module
-│   ├── clients/      # Específicos del módulo clientes
-│   ├── visits/       # Específicos del módulo visitas
-│   ├── dashboard/    # Específicos del dashboard
-│   └── layout/       # Sidebar, navegación
-├── lib/
-│   ├── actions/      # Server Actions (1 archivo por dominio)
-│   ├── supabase/     # Clientes Supabase
-│   ├── types/        # Definiciones de tipos
-│   ├── validations/  # Schemas Zod
-│   ├── utils/        # Utilidades
-│   ├── constants.ts  # Constantes compartidas
-│   ├── dals.ts       # Data Access Layer
-│   └── url.ts        # Resolvedor de URLs
-└── proxy.ts          # Middleware de auth
-```
+- Preferir Server Actions para mutaciones de negocio.
+- Usar cliente Supabase browser solo en Client Components cuando sea necesario.
+- Mantener revalidaciones (`revalidatePath`) alineadas con vistas afectadas.
 
-## Cómo agregar una nueva página
+### Validacion
 
-1. Crear `src/app/(dashboard)/nueva-ruta/page.tsx`
-2. Si carga datos: Server Component con `export default async function`
-3. Si tiene interactividad: Client Component con `"use client"`
-4. Si necesita proteccion: el layout `(dashboard)/layout.tsx` ya llama a `verifySession()`
-5. Agregar la ruta al sidebar en `components/layout/sidebar.tsx`
+- Validar payload en servidor con Zod.
+- Nunca confiar en inputs de cliente sin validacion.
 
-## Cómo agregar un nuevo modelo/tabla
+### Sesion
 
-1. Agregar `CREATE TABLE IF NOT EXISTS` en `supabase/migrations/001_initial_schema.sql`
-2. Agregar RLS policies
-3. Agregar índices si es necesario
-4. Agregar GRANT al final
-5. Crear tipos en `lib/types/database.ts`
-6. Crear Server Actions en `lib/actions/nuevo-dominio.ts`
-7. Crear validación Zod en `lib/validations/`
-8. Crear componentes y página
+- Rutas privadas dependen de `(dashboard)/layout.tsx` + `verifySession()`.
+- No duplicar chequeos de auth en cada pagina salvo casos especiales.
 
-## Cómo agregar un nuevo Server Action
+## Flujos actuales por modulo
 
-```typescript
-// src/lib/actions/mi-dominio.ts
-"use server";
+- Clientes: `client-form.tsx` -> `actions/clients.ts`.
+- Visitas: `visit-form.tsx` -> `actions/visits.ts` + upload de fotos.
+- Zonas: formularios server action en `actions/zones.ts`.
+- Reportes: `reportes/semanal` usa action `generateWeeklyReport`.
+- Importar: parse en cliente + import en `actions/import.ts`.
+- Rutas: listado/detalle usan server actions, pero `rutas/nueva` inserta directo con cliente Supabase.
 
-import { createClient as createSupabaseClient } from "@/lib/supabase/server";
-import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
-import { miSchema } from "@/lib/validations/mi.schema";
+## Agregar una nueva pagina protegida
 
-export async function crearEntidad(formData: FormData) {
-  const supabase = await createSupabaseClient();
+1. Crear ruta en `src/app/(dashboard)/<modulo>/page.tsx`.
+2. Definir si sera Server Component o Client Component.
+3. Si muta datos, crear action en `src/lib/actions/<dominio>.ts`.
+4. Agregar validaciones Zod en `src/lib/validations/`.
+5. Conectar navegacion (`sidebar.tsx` y `bottom-nav.tsx` si aplica).
 
-  // 1. Obtener usuario
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error("No autorizado");
+## Agregar una nueva tabla en BD
 
-  // 2. Parsear y validar
-  const raw = {
-    campo1: formData.get("campo1") as string,
-    campo2: formData.get("campo2") as string,
-  };
-  const parsed = miSchema.safeParse(raw);
-  if (!parsed.success) {
-    return { error: "Datos inválidos" };
-  }
+1. Editar `supabase/migrations/001_initial_schema.sql`.
+2. Crear indices y policies RLS.
+3. Agregar grants necesarios.
+4. Actualizar tipos en `src/lib/types/database.ts`.
+5. Implementar actions y UI asociada.
 
-  // 3. Insertar
-  const { error } = await supabase.from("tabla").insert({
-    ...parsed.data,
-    user_id: user.id,
-  });
-  if (error) return { error: error.message };
+## Comandos utiles
 
-  // 4. Revalidar caché
-  revalidatePath("/ruta");
-
-  return { success: true };
-}
+```bash
+npm run dev
+npm run build
+npm run lint
+npx tsc --noEmit
 ```
 
-## Cómo usar el cliente Supabase
+## Notas de mantenimiento
 
-### En Server Components / Server Actions
-
-```typescript
-import { createClient } from "@/lib/supabase/server";
-const supabase = await createClient();
-```
-
-### En Client Components
-
-```typescript
-"use client";
-import { createClient } from "@/lib/supabase/client";
-const supabase = createClient();
-```
-
-### Restricciones
-
-- Solo usar browser client en Client Components para **lecturas** o mutaciones simples
-- Mutaciones complejas siempre mediante Server Actions
-- No exponer el browser client fuera de componentes React
-
-## Estilo de código
-
-- **TypeScript strict mode** activado
-- **Zod** para validación de inputs (servidor)
-- **No `any`** sin razón justificada
-- **Prefer `??` sobre `\|\|`** para valores que pueden ser `0` o `""`
-- **Importar constantes** de `lib/constants.ts`, no redefinir
-- **Usar `cn()`** de `lib/utils.ts` para clases condicionales
-
-## Flujo de desarrollo recomendado
-
-1. `npm run dev` para desarrollo local
-2. Probar en `http://localhost:3000`
-3. Verificar TypeScript: `npx tsc --noEmit`
-4. Build de prueba: `npm run build -- --webpack`
-5. Commit y push → Vercel deploy automático
+- `src/lib/actions/auth.ts` existe, pero el logout activo usa `/api/auth/logout`.
+- Revisar periodicamente codigo no usado (ejemplo: `createRoute` action no utilizada por la pagina `rutas/nueva`).
+- Cuando cambie auth/proveedores, sincronizar `docs/tech/authentication.md` y `docs/tech/security.md`.

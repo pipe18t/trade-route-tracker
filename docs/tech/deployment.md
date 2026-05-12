@@ -1,112 +1,104 @@
-# Despliegue — Trade Route Tracker
+# Despliegue - Trade Route Tracker
 
-## Plataforma recomendada
+## Arquitectura de despliegue recomendada
 
-**Vercel** (nativo para Next.js) + **Supabase** (backend as a service).
+- Frontend/app: Vercel (Next.js 16).
+- Backend: Supabase (Auth + PostgreSQL + Storage).
 
-## Variables de entorno en Vercel
+## Requisitos
 
-Configurar en Vercel Dashboard → Settings → Environment Variables:
+- Node.js compatible con Next.js 16.
+- Proyecto Supabase con Auth habilitado.
+- Bucket `visit-photos` creado manualmente.
 
-| Variable | Descripción |
-|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | URL del proyecto Supabase |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Anon/public key de Supabase |
-| `NEXT_PUBLIC_SITE_URL` | `https://trade-route-tracker.vercel.app` |
+## Variables de entorno
 
-## Build
+Configurar en Vercel y en desarrollo local:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `NEXT_PUBLIC_SITE_URL`
+
+Ejemplo produccion:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
+NEXT_PUBLIC_SITE_URL=https://trade-route-tracker.vercel.app
+```
+
+## Build y arranque
+
+Scripts del proyecto:
+
+- `npm run dev`
+- `npm run build`
+- `npm run start`
+
+Comandos tipicos:
 
 ```bash
-npm run build -- --webpack  # Windows sin Turbopack
-npm run build               # Linux/Mac con Turbopack
+npm ci
+npm run build
 ```
 
-Vercel detecta automáticamente el framework Next.js y ejecuta `next build`.
+## Provisionamiento de base de datos
 
-## Migración de base de datos
+1. Abrir Supabase SQL Editor.
+2. Ejecutar `supabase/migrations/001_initial_schema.sql`.
+3. Verificar tablas, policies y triggers creados.
 
-1. Ir a Supabase Dashboard → SQL Editor
-2. Copiar y pegar `supabase/migrations/001_initial_schema.sql`
-3. Ejecutar (el archivo es idempotente: se puede ejecutar múltiples veces sin error)
+## Provisionamiento de storage
 
-## Storage
+1. Crear bucket `visit-photos` (publico).
+2. Confirmar que las policies sobre `storage.objects` quedaron aplicadas por la migracion.
 
-1. Supabase Dashboard → Storage
-2. Crear bucket `visit-photos` (marcar como público)
-3. Las políticas de storage están incluidas en la migración SQL
+## Configuracion Auth en Supabase
 
-## Supabase Auth
+### URL Configuration
 
-### Redirect URLs
+Agregar al menos:
 
-Agregar en Supabase → Authentication → URL Configuration:
-
-```
-http://localhost:3000/auth/callback
-https://trade-route-tracker.vercel.app/auth/callback
-```
+- `http://localhost:3000/auth/callback`
+- `https://<dominio-prod>/auth/callback`
 
 ### Providers
 
-Habilitar Google OAuth (y GitHub opcional) en Authentication → Providers con los Client ID/Secret correspondientes.
+- Google OAuth configurado y activo.
+- GitHub opcional en Supabase, pero no usado por la UI actual.
 
-## Flujo de deploy
+## Deploy en Vercel
 
-```mermaid
-graph LR
-    A[Git Push] --> B[Vercel detecta]
-    B --> C[next build]
-    C --> D[Deploy a producción]
-    E[Supabase SQL] --> F[Migración ejecutada]
-    F --> G[Tablas + RLS + Datos]
-```
+1. Conectar repositorio.
+2. Configurar variables de entorno.
+3. Ejecutar primer deploy.
+4. Validar rutas clave:
+   - `/login`
+   - `/dashboard`
+   - `/clientes`
+   - `/rutas`
+   - `/importar`
 
-## Dominios y URLs
+## Checklist post-deploy
 
-| Entorno | URL |
-|---|---|
-| Producción | `https://trade-route-tracker.vercel.app` |
-| Supabase | `https://cvayjrtvctybbhvfquvh.supabase.co` |
-| Dev local | `http://localhost:3000` |
+- Login con Google funciona.
+- Callback redirige correctamente a dashboard.
+- Logout redirige a login.
+- Crear cliente y visita funciona.
+- Upload de fotos funciona en bucket `visit-photos`.
+- Crear ruta funciona con politicas RLS vigentes.
 
 ## CI/CD
 
-No configurado explícitamente. Vercel ofrece deploy automático en cada push a la rama principal.
+No hay workflow de CI en repo actualmente.
+Sugerencia minima:
 
-### Recomendación para CI/CD
+- `npm ci`
+- `npm run build`
+- (opcional) `npx tsc --noEmit`
 
-```yaml
-# .github/workflows/ci.yml (sugerido)
-name: CI
-on: [push, pull_request]
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-      - run: npm ci
-      - run: npx tsc --noEmit
-      - run: npm run build
-```
+## Escalabilidad y costos (resumen)
 
-## Docker
-
-No implementado. La app está diseñada para deploy serverless en Vercel. Para Docker:
-
-```dockerfile
-FROM node:22-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --production
-COPY . .
-RUN npm run build
-EXPOSE 3000
-CMD ["npm", "start"]
-```
-
-## Consideraciones de escalabilidad
-
-- **Vercel**: escala automáticamente con serverless functions
-- **Supabase**: plan gratuito incluye 500 MB de BD y 2 GB de storage. Para más de 300 clientes y fotos, considerar plan Pro
-- **Imágenes**: sin compresión client-side en esta versión. Con muchas fotos, considerar resize antes del upload
+- Vercel escala automaticamente capa web.
+- Supabase limita almacenamiento/DB segun plan.
+- Upload de fotos sin compresion puede impactar costo de Storage y transferencia.

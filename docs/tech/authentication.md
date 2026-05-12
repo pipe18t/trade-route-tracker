@@ -1,119 +1,81 @@
-# Autenticación — Trade Route Tracker
+# Autenticacion - Trade Route Tracker
 
-## Tipo de autenticación
+## Estado actual
 
-**Supabase Auth** con dos métodos:
+La UI publica hoy habilita solo **Google OAuth**.
 
-1. **Google OAuth** (proveedor principal)
-2. **Magic Link** (email OTP, como alternativa)
+En `src/app/(auth)/login/page.tsx` existen funciones para Magic Link y GitHub, pero los bloques de UI estan comentados, por lo que no estan activos para usuarios finales.
 
-No se usa contraseña. No hay registro tradicional.
+## Flujo real de login
 
-## Flujo de autenticación
-
-```mermaid
-sequenceDiagram
-    participant U as Usuario
-    participant L as /login
-    participant S as Supabase Auth
-    participant C as /auth/callback
-    participant D as /dashboard
-
-    U->>L: Click "Google" o "GitHub"
-    L->>S: signInWithOAuth({ provider, redirectTo })
-    S->>U: Redirige a Google/GitHub
-    U->>S: Autoriza en Google/GitHub
-    S->>C: GET /auth/callback?code=xxx
-    C->>S: exchangeCodeForSession(code)
-    S->>C: Sesión establecida (cookies)
-    C->>D: Redirect 302
-    D->>U: Dashboard renderizado
-```
-
-### Magic Link (alternativo)
-
-```
-Usuario → email → signInWithOtp({ email, emailRedirectTo }) 
-  → revisa correo → click link → /auth/callback?code=xxx 
-  → exchangeCodeForSession → /dashboard
-```
-
-## Capas de protección
-
-### 1. `proxy.ts` (capa optimista)
-
-Reemplazo de middleware en Next.js 16. Solo verifica cookies de sesión:
-
-```typescript
-const PUBLIC_PATHS = ["/login", "/auth/callback", "/_next", "/api/auth"];
-
-if (!user && !isPublicPath) → redirect("/login")
-if (user && path === "/login") → redirect("/dashboard")
-```
-
-**No hace consultas a BD** — es solo cookie-based, siguiendo las best practices de Next.js.
-
-### 2. `verifySession()` en DAL (capa segura)
-
-```typescript
-// lib/dals.ts
-export const verifySession = cache(async () => {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
-  // ... obtener/crear perfil
-  return { user, profile };
-});
-```
-
-Llamado desde `(dashboard)/layout.tsx`. Usa `React.cache()` para memoizar. Hace la verificación real contra Supabase.
-
-### 3. Row Level Security (capa de base de datos)
-
-Ver [database.md](database.md) para el detalle completo. Resumen:
-
-- **SELECT**: `true` (cualquier sesión autenticada puede leer)
-- **INSERT/UPDATE/DELETE**: Verifica `auth.uid()` para ownership (visits, routes) o `auth.uid() IS NOT NULL` (zones, clients)
-
-## Sesiones
-
-- **Cookies**: Supabase almacena `sb-{project-ref}-auth-token` y `sb-{project-ref}-auth-token-code-verifier`
-- **Duración**: Configurada en Supabase Dashboard (default: 1 hora access token, 7 días refresh token)
-- **Refresh**: `@supabase/ssr` maneja el refresh automático vía cookies
-
-## Roles
-
-| Rol | Descripción | Uso actual |
-|---|---|---|
-| `admin` | Acceso total | No implementado aún |
-| `supervisor` | Vista de supervisión | No implementado aún |
-| `ejecutivo` | Acceso estándar | No implementado aún |
-| `practicante` | Usuario por defecto | Todos los usuarios nuevos |
-
-El campo `role` existe en `profiles` y el trigger lo asigna como `'practicante'`. La UI no tiene diferenciación por rol en esta versión (MVP).
+1. Usuario entra a `/login`.
+2. Click en "Iniciar sesion con Google".
+3. `supabase.auth.signInWithOAuth({ provider: "google" })` redirige a Supabase/Google.
+4. Supabase redirige de vuelta a `/auth/callback?code=...`.
+5. `GET /auth/callback` ejecuta `exchangeCodeForSession(code)`.
+6. Se setean cookies de sesion y se redirige a `/dashboard`.
 
 ## Logout
 
-`POST /api/auth/logout` → `supabase.auth.signOut()` → redirect `/login`
+- UI envia `POST` a `/api/auth/logout`.
+- Handler hace `supabase.auth.signOut()` y redirige a `/login`.
 
-## Configuración en Supabase
+## Capas de control de acceso
 
-### Authentication → URL Configuration
+### 1) `src/proxy.ts`
 
-| Campo | Valor dev | Valor prod |
-|---|---|---|
-| Site URL | `http://localhost:3000` | `https://trade-route-tracker.vercel.app` |
-| Redirect URLs | `http://localhost:3000/auth/callback` | `https://trade-route-tracker.vercel.app/auth/callback` |
+Filtro de borde para navegacion:
 
-### Authentication → Providers
+- Permite rutas publicas (`/login`, `/auth/callback`, `/_next`, `/api/auth`).
+- Redirige a `/login` cuando no hay sesion en rutas privadas.
+- Redirige a `/dashboard` si ya hay sesion y se intenta abrir `/login`.
 
-- Google: habilitado con Client ID/Secret
-- GitHub: habilitado con Client ID/Secret (opcional)
+### 2) `verifySession()` en `src/lib/dals.ts`
 
-## Variables de entorno
+Validacion fuerte en servidor:
 
-```
-NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbG...
-NEXT_PUBLIC_SITE_URL=https://trade-route-tracker.vercel.app
-```
+- `supabase.auth.getUser()` para usuario autenticado real.
+- Si no hay usuario, `redirect('/login')`.
+- Lee perfil desde `profiles`.
+- Si falta perfil, intenta crearlo automaticamente y aplica fallback seguro para no romper UI.
+
+### 3) RLS (PostgreSQL)
+
+Todas las tablas de negocio tienen RLS habilitado.
+Las politicas controlan ownership o condicion de usuario autenticado segun tabla.
+
+## Cookies/sesion
+
+Supabase gestiona cookies y refresh token via `@supabase/ssr`.
+El nombre exacto de cookie depende del proyecto Supabase (`sb-<project-ref>-auth-token`, etc.).
+
+## Variables de entorno usadas en auth
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `NEXT_PUBLIC_SITE_URL` (fallback de redirects en server)
+
+## Configuracion necesaria en Supabase
+
+### Authentication -> URL Configuration
+
+- `Site URL`: dominio principal (ej: `http://localhost:3000` en dev).
+- Redirect URL valida para callback:
+  - `http://localhost:3000/auth/callback`
+  - `https://<dominio-prod>/auth/callback`
+
+### Authentication -> Providers
+
+- Google: habilitado y configurado.
+- GitHub: opcional en plataforma, pero no expuesto por la UI actual.
+
+## Roles
+
+El campo `profiles.role` existe con valores:
+
+- `admin`
+- `supervisor`
+- `ejecutivo`
+- `practicante`
+
+Actualmente no hay autorizacion por rol en frontend; el rol se muestra en panel y se persiste en BD.
