@@ -34,7 +34,31 @@ export async function getClients(filters?: {
     console.error("getClients error:", JSON.stringify(error));
     throw error;
   }
-  return data as (Client & { zone: { name: string } | null })[];
+
+  const clients = data as (Client & { zone: { name: string } | null })[];
+
+  if (clients.length === 0) return [];
+
+  const clientIds = clients.map((c) => c.id);
+
+  const { data: visits } = await supabase
+    .from("visits")
+    .select("client_id, visit_date, next_action")
+    .in("client_id", clientIds)
+    .order("visit_date", { ascending: false });
+
+  const lastVisitMap = new Map<string, { visit_date: string; next_action: string | null }>();
+  visits?.forEach((v) => {
+    if (!lastVisitMap.has(v.client_id)) {
+      lastVisitMap.set(v.client_id, { visit_date: v.visit_date, next_action: v.next_action });
+    }
+  });
+
+  return clients.map((c) => ({
+    ...c,
+    last_visit: lastVisitMap.get(c.id)?.visit_date ?? null,
+    next_action: lastVisitMap.get(c.id)?.next_action ?? null,
+  })) as (Client & { zone: { name: string } | null; last_visit: string | null; next_action: string | null })[];
 }
 
 export async function getClient(id: string) {

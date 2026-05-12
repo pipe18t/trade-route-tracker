@@ -15,7 +15,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { createClient, updateClient } from "@/lib/actions/clients";
-import { DAYS, FINAL_STATUS_OPTIONS } from "@/lib/constants";
+import { DAYS, CLIENT_STATUS_OPTIONS } from "@/lib/constants";
 import type { Zone } from "@/lib/types/database";
 
 interface ClientFormProps {
@@ -171,7 +171,7 @@ export function ClientForm({ zones, client }: ClientFormProps) {
               <Select value={formData.status} onValueChange={(v) => update("status", v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {FINAL_STATUS_OPTIONS.map((s) => (
+                  {CLIENT_STATUS_OPTIONS.map((s) => (
                     <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
                   ))}
                 </SelectContent>

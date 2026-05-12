@@ -10,7 +10,7 @@ import { type Client, type ClientStatus, type Priority } from "@/lib/types/datab
 import { deleteClientAction } from "@/lib/actions/clients";
 
 interface ClientTableProps {
-  clients: Client[];
+  clients: (Client & { last_visit?: string | null; next_action?: string | null })[];
 }
 
 export function ClientTable({ clients }: ClientTableProps) {
@@ -26,14 +26,15 @@ export function ClientTable({ clients }: ClientTableProps) {
               <th className="text-left py-3 px-4 font-medium">Zona</th>
               <th className="text-left py-3 px-4 font-medium">Estado</th>
               <th className="text-left py-3 px-4 font-medium">Prioridad</th>
-              <th className="text-left py-3 px-4 font-medium">Visita</th>
+              <th className="text-left py-3 px-4 font-medium">Última visita</th>
+              <th className="text-left py-3 px-4 font-medium">Próx. acción</th>
               <th className="text-right py-3 px-4 font-medium">Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y">
             {clients.length === 0 && (
               <tr>
-                <td colSpan={7} className="py-8 text-center text-muted-foreground">
+                <td colSpan={9} className="py-8 text-center text-muted-foreground">
                   No se encontraron clientes
                 </td>
               </tr>
@@ -60,8 +61,13 @@ export function ClientTable({ clients }: ClientTableProps) {
                 <td className="py-3 px-4">
                   <PriorityBadge priority={(client.priority || "media") as Priority} />
                 </td>
-                <td className="py-3 px-4 text-muted-foreground">
-                  {client.visit_day || "—"}
+                <td className="py-3 px-4 text-muted-foreground text-xs">
+                  {client.last_visit
+                    ? new Date(client.last_visit).toLocaleDateString("es-CL")
+                    : "—"}
+                </td>
+                <td className="py-3 px-4 text-muted-foreground text-xs max-w-[120px] truncate">
+                  {client.next_action || "—"}
                 </td>
                 <td className="py-3 px-4">
                   <div className="flex items-center justify-end gap-1">
@@ -122,6 +128,17 @@ export function ClientTable({ clients }: ClientTableProps) {
                 {(client.zone as { name?: string } | null)?.name || client.region || "—"}
               </span>
               <PriorityBadge priority={(client.priority || "media") as Priority} />
+            </div>
+            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              <span>
+                Últ. visita:{" "}
+                {client.last_visit
+                  ? new Date(client.last_visit).toLocaleDateString("es-CL")
+                  : "—"}
+              </span>
+              <span className="truncate max-w-[180px]">
+                Próx.: {client.next_action || "—"}
+              </span>
             </div>
             <div className="flex items-center justify-between pt-2 border-t">
               <GoogleMapsButton
