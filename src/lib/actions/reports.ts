@@ -10,6 +10,10 @@ export async function generateWeeklyReport(
 ) {
   const supabase = await createSupabaseClient();
 
+  if (startDate > endDate) {
+    throw new Error("La fecha de inicio debe ser anterior a la fecha de fin");
+  }
+
   // Get user name
   const {
     data: { user },
@@ -83,7 +87,7 @@ export async function generateWeeklyReport(
     startDate,
     endDate,
     userName,
-    region: region === "V" ? "Quinta Región" : "RM",
+    region: region === "all" ? "Todas las regiones" : region === "V" ? "Quinta Región" : "RM",
     zones: Array.from(zoneNames).join(", "),
     stats: {
       totalVisits,
