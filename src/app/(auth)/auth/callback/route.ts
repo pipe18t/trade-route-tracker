@@ -8,15 +8,13 @@ export async function GET(request: Request) {
   const next = searchParams.get("next") ?? "/dashboard";
   const siteUrl = getSiteUrl();
 
-  if (!code) {
-    return NextResponse.redirect(`${siteUrl}/login?error=oauth_callback_failed`);
-  }
+  if (code) {
+    const supabase = await createClient();
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
 
-  const supabase = await createClient();
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
-
-  if (error) {
-    return NextResponse.redirect(`${siteUrl}/login?error=oauth_callback_failed`);
+    if (error) {
+      return NextResponse.redirect(`${siteUrl}/login?error=auth-failed`);
+    }
   }
 
   return NextResponse.redirect(`${siteUrl}${next}`);

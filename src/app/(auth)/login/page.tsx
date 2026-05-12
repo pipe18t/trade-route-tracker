@@ -139,14 +139,14 @@ function LoginForm() {
           </Button> */}
         </div>
 
-        {/* <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <Separator className="flex-1" />
           <span className="text-xs text-muted-foreground">o con correo</span>
           <Separator className="flex-1" />
-        </div> */}
+        </div>
 
         {/* Magic link */}
-        {/* <form onSubmit={handleMagicLink} className="space-y-3">
+        <form onSubmit={handleMagicLink} className="space-y-3">
           <div className="space-y-2">
             <Label htmlFor="email">Correo electrónico</Label>
             <Input
@@ -167,7 +167,7 @@ function LoginForm() {
           >
             {loading === "magiclink" ? "Enviando..." : "Enviar enlace mágico"}
           </Button>
-        </form> */}
+        </form>
       </CardContent>
     </Card>
   );

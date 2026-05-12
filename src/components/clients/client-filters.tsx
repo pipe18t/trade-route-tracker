@@ -11,7 +11,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Search, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { DAYS } from "@/lib/constants";
 
 interface FiltersProps {
   zones: { id: string; name: string }[];
@@ -22,6 +23,9 @@ export function ClientFilters({ zones }: FiltersProps) {
   const searchParams = useSearchParams();
 
   const [search, setSearch] = useState(searchParams.get("search") || "");
+  const [comuna, setComuna] = useState(searchParams.get("comuna") || "");
+  const searchTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const comunaTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   function setParam(key: string, value: string | null) {
     const params = new URLSearchParams(searchParams.toString());
@@ -36,6 +40,7 @@ export function ClientFilters({ zones }: FiltersProps) {
   function clearAll() {
     router.push("/clientes");
     setSearch("");
+    setComuna("");
   }
 
   const hasFilters = [
@@ -49,7 +54,8 @@ export function ClientFilters({ zones }: FiltersProps) {
   ].some((k) => searchParams.has(k));
 
   useEffect(() => {
-    const timer = setTimeout(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    searchTimer.current = setTimeout(() => {
       const params = new URLSearchParams(searchParams.toString());
       if (search) {
         params.set("search", search);
@@ -58,8 +64,22 @@ export function ClientFilters({ zones }: FiltersProps) {
       }
       router.push(`/clientes?${params.toString()}`);
     }, 400);
-    return () => clearTimeout(timer);
+    return () => clearTimeout(searchTimer.current);
   }, [search]);
+
+  useEffect(() => {
+    if (comunaTimer.current) clearTimeout(comunaTimer.current);
+    comunaTimer.current = setTimeout(() => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (comuna) {
+        params.set("comuna", comuna);
+      } else {
+        params.delete("comuna");
+      }
+      router.push(`/clientes?${params.toString()}`);
+    }, 400);
+    return () => clearTimeout(comunaTimer.current);
+  }, [comuna]);
 
   return (
     <div className="space-y-3">
@@ -136,6 +156,28 @@ export function ClientFilters({ zones }: FiltersProps) {
             <SelectItem value="baja">Baja</SelectItem>
           </SelectContent>
         </Select>
+
+        <Select
+          value={searchParams.get("visit_day") ?? ""}
+          onValueChange={(v) => setParam("visit_day", v === "all" ? "" : v)}
+        >
+          <SelectTrigger className="w-[140px]">
+            <SelectValue placeholder="Día visita" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos</SelectItem>
+            {DAYS.map((d) => (
+              <SelectItem key={d} value={d}>{d}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Input
+          placeholder="Comuna..."
+          value={comuna}
+          onChange={(e) => setComuna(e.target.value)}
+          className="w-[140px]"
+        />
 
         {hasFilters && (
           <Button variant="ghost" size="sm" onClick={clearAll}>

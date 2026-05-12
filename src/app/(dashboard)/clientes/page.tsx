@@ -19,9 +19,11 @@ async function ClientsContent({
   const [clients, zones] = await Promise.all([
     getClients({
       region: params.region,
+      comuna: params.comuna,
       zone_id: params.zone_id,
       status: params.status,
       priority: params.priority,
+      visit_day: params.visit_day,
       search: params.search,
     }),
     getZones(),

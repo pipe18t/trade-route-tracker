@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
+import { createRoute } from "@/lib/actions/routes";
 import { ChevronUp, ChevronDown, X } from "lucide-react";
 import type { Zone } from "@/lib/types/database";
 
@@ -53,10 +54,7 @@ export default function NuevaRutaPage() {
   }, []);
 
   useEffect(() => {
-    if (!selectedZone) {
-      setPendingClients([]);
-      return;
-    }
+    if (!selectedZone) return;
     supabase
       .from("clients")
       .select("id, name, address")
@@ -103,42 +101,22 @@ export default function NuevaRutaPage() {
 
     setLoading(true);
 
-    const { data: route, error } = await supabase
-      .from("routes")
-      .insert({
+    try {
+      await createRoute({
         name: routeName,
         region: selectedRegion,
         zone_id: selectedZone || null,
-        route_date: routeDate,
-      })
-      .select("id")
-      .single();
-
-    if (error) {
-      toast.error(error.message);
+        route_date: routeDate || null,
+        client_ids: selectedClients.map((c) => c.id),
+      });
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Error al crear la ruta. Verifica los permisos e intenta de nuevo."
+      );
       setLoading(false);
-      return;
     }
-
-    const routeClients = selectedClients.map((c) => ({
-      route_id: route.id,
-      client_id: c.id,
-      position: c.position,
-    }));
-
-    const { error: rcError } = await supabase
-      .from("route_clients")
-      .insert(routeClients);
-
-    if (rcError) {
-      toast.error(rcError.message);
-      setLoading(false);
-      return;
-    }
-
-    toast.success("Ruta creada");
-    router.push("/rutas");
-    router.refresh();
   }
 
   const remainingClients = pendingClients.filter(
@@ -196,7 +174,11 @@ export default function NuevaRutaPage() {
               </div>
               <div className="space-y-2">
                 <Label>Zona</Label>
-                <Select value={selectedZone} onValueChange={(v) => setSelectedZone(v ?? "")}>
+                <Select value={selectedZone} onValueChange={(v) => {
+                    const value = v ?? "";
+                    setSelectedZone(value);
+                    if (!value) setPendingClients([]);
+                  }}>
                   <SelectTrigger>
                     <SelectValue placeholder="Seleccionar zona" />
                   </SelectTrigger>

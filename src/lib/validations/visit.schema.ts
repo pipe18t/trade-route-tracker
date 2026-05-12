@@ -33,15 +33,15 @@ export const visitSchema = z
     follow_up_date: z.string().optional().nullable(),
     follow_up_priority: z.enum(["alta", "media", "baja"]).optional(),
     general_notes: z.string().optional(),
-    final_status: z
-      .enum([
-        "visitado",
-        "seguimiento",
-        "no_atendido",
-        "coordinar_hora",
-        "administrador_no_disponible",
-      ])
-      .optional(),
+    final_status: z.enum([
+      "visitado",
+      "seguimiento",
+      "no_atendido",
+      "coordinar_hora",
+      "administrador_no_disponible",
+    ], {
+      message: "Selecciona el estado final del local",
+    }),
   })
   .refine(
     (data) => {

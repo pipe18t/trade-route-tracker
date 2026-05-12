@@ -56,6 +56,7 @@ export async function createVisit(formData: FormData) {
       (formData.get("recommended_brand_by_staff") as string) || undefined,
     competitor_notes:
       (formData.get("competitor_notes") as string) || undefined,
+    competitors: (formData.get("competitors") as string) || undefined,
     opportunity_type: formData.getAll("opportunity_type").length > 0
       ? (formData.getAll("opportunity_type") as string[])
       : undefined,
@@ -95,6 +96,7 @@ export async function createVisit(formData: FormData) {
     most_visible_competitor: parsed.data.most_visible_competitor || null,
     recommended_brand_by_staff: parsed.data.recommended_brand_by_staff || null,
     competitor_notes: parsed.data.competitor_notes || null,
+    competitors: parsed.data.competitors || null,
     opportunity_type: parsed.data.opportunity_type || null,
     next_action: parsed.data.next_action || null,
     follow_up_date: parsed.data.follow_up_date || null,

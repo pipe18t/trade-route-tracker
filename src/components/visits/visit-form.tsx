@@ -289,6 +289,14 @@ export function VisitForm({ clientId, clientName }: VisitFormProps) {
             </div>
           </div>
           <div className="space-y-2">
+            <Label htmlFor="competitors">Marcas competidoras presentes</Label>
+            <Input
+              id="competitors"
+              name="competitors"
+              placeholder="Ej: Heineken, Stella Artois, Corona (separar por comas)"
+            />
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="competitor_notes">Observaciones</Label>
             <textarea id="competitor_notes" name="competitor_notes" rows={3}
               className="flex min-h-[80px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring" />
@@ -355,10 +363,10 @@ export function VisitForm({ clientId, clientName }: VisitFormProps) {
           </div>
           <Separator />
           <div className="space-y-2">
-            <Label htmlFor="final_status">Estado final del local</Label>
-            <Select name="final_status">
+            <Label htmlFor="final_status">Estado final del local *</Label>
+            <Select name="final_status" required>
               <SelectTrigger id="final_status">
-                <SelectValue placeholder="Seleccionar" />
+                <SelectValue placeholder="Seleccionar estado final" />
               </SelectTrigger>
               <SelectContent>
                 {FINAL_STATUS_OPTIONS.map((s) => (

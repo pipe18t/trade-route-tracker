@@ -65,7 +65,7 @@ interface VisitData {
 }
 
 export default function ReporteSemanalPage() {
-  const [zones, setZones] = useState<{ id: string; name: string }[]>([]);
+  const [zones, setZones] = useState<{ id: string; name: string; region: string }[]>([]);
   const [filters, setFilters] = useState({
       startDate: getStartOfWeek(),
     endDate: new Date().toISOString().split("T")[0],
@@ -78,12 +78,16 @@ export default function ReporteSemanalPage() {
   useEffect(() => {
     createClient()
       .from("zones")
-      .select("id, name")
+      .select("id, name, region")
       .order("name")
       .then(({ data }) => setZones(data || []));
   }, []);
 
   async function handleGenerate() {
+    if (filters.startDate > filters.endDate) {
+      toast.error("La fecha de inicio debe ser anterior a la fecha de fin");
+      return;
+    }
     setLoading(true);
     try {
       const data = await generateWeeklyReport(
@@ -105,7 +109,7 @@ export default function ReporteSemanalPage() {
     const start = new Date(report.startDate).toLocaleDateString("es-CL");
     const end = new Date(report.endDate).toLocaleDateString("es-CL");
 
-    let text = `Reporte semanal — Trade Marketing On Trade
+    const text = `Reporte semanal — Trade Marketing On Trade
 Semana: ${start} al ${end}
 Ejecutiva: ${report.userName}
 Región: ${report.region}
@@ -247,8 +251,7 @@ ${report.followUps
                   {zones
                     .filter(
                       (z) =>
-                        filters.region === "all" ||
-                        zones.find((fz) => fz.id === z.id)
+                        filters.region === "all" || z.region === filters.region
                     )
                     .map((z) => (
                       <SelectItem key={z.id} value={z.id}>

@@ -26,12 +26,13 @@
 ### Iniciar sesión
 
 1. Entra a la app desde tu computador o celular
-2. Ingresa tu correo electrónico
-3. Haz clic en **"Enviar enlace mágico"**
-4. Revisa tu bandeja de entrada y abre el enlace
-5. Quedarás autenticada automáticamente
+2. Elige uno de los métodos:
+   - **Google:** Haz clic en "Iniciar sesión con Google" (recomendado si tienes cuenta Gmail)
+   - **Magic link:** Ingresa tu correo electrónico y haz clic en **"Enviar enlace mágico"**
+3. Revisa tu bandeja de entrada y abre el enlace (solo para magic link)
+4. Quedarás autenticada automáticamente
 
-> **Tip:** No necesitas contraseña. Cada vez que entres recibirás un enlace nuevo por correo.
+> **Tip:** No necesitas contraseña. Con magic link recibirás un enlace nuevo por correo cada vez que entres.
 
 ### Pantalla principal
 

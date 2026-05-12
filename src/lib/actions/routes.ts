@@ -25,34 +25,34 @@ export async function getRouteWithClients(id: string) {
 
   const { data: routeClients } = await supabase
     .from("route_clients")
-    .select("*, client:clients(name, address, status)")
+    .select("*, client:clients(id, name, address, status)")
     .eq("route_id", id)
     .order("position", { ascending: true });
 
   return { ...route, clients: routeClients || [] };
 }
 
-export async function createRoute(formData: FormData) {
+export async function createRoute(data: {
+  name: string;
+  region?: string;
+  zone_id?: string | null;
+  route_date?: string | null;
+  client_ids: string[];
+}) {
   const supabase = await createSupabaseClient();
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const name = formData.get("name") as string;
-  const region = formData.get("region") as string;
-  const zoneId = formData.get("zone_id") as string;
-  const routeDate = formData.get("route_date") as string;
-  const clientIds = formData.getAll("client_ids") as string[];
-
   const { data: route, error } = await supabase
     .from("routes")
     .insert({
       user_id: user?.id ?? null,
-      name,
-      region: region || null,
-      zone_id: zoneId || null,
-      route_date: routeDate || null,
+      name: data.name,
+      region: data.region || null,
+      zone_id: data.zone_id || null,
+      route_date: data.route_date || null,
       status: "planificada",
     })
     .select("id")
@@ -60,9 +60,8 @@ export async function createRoute(formData: FormData) {
 
   if (error) throw new Error(error.message);
 
-  // Insert route_clients with position
-  if (clientIds.length > 0) {
-    const routeClientInserts = clientIds.map((clientId, index) => ({
+  if (data.client_ids.length > 0) {
+    const routeClientInserts = data.client_ids.map((clientId, index) => ({
       route_id: route.id,
       client_id: clientId,
       position: index + 1,

@@ -100,6 +100,15 @@ export const OPPORTUNITIES = [
   "otro",
 ] as const;
 
+export const CLIENT_STATUS_OPTIONS = [
+  { value: "pendiente", label: "Pendiente" },
+  { value: "visitado", label: "Visitado" },
+  { value: "seguimiento", label: "Seguimiento" },
+  { value: "no_atendido", label: "No atendido" },
+  { value: "coordinar_hora", label: "Coordinar hora" },
+  { value: "administrador_no_disponible", label: "Adm. no disponible" },
+] as const;
+
 export const FINAL_STATUS_OPTIONS = [
   { value: "visitado", label: "Visitado" },
   { value: "seguimiento", label: "Seguimiento" },
