@@ -143,12 +143,18 @@ export default async function RouteDetailPage({
                     {(rc.position as number) || index + 1}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <Link
-                      href={`/clientes/${client.id}`}
-                      className="font-medium text-sm hover:underline"
-                    >
-                      {client.name}
-                    </Link>
+                    {client.id ? (
+                      <Link
+                        href={`/clientes/${client.id}`}
+                        className="font-medium text-sm hover:underline"
+                      >
+                        {client.name}
+                      </Link>
+                    ) : (
+                      <span className="font-medium text-sm">
+                        {client.name}
+                      </span>
+                    )}
                     {client.address && (
                       <p className="text-xs text-muted-foreground truncate">
                         {client.address}
@@ -163,11 +169,13 @@ export default async function RouteDetailPage({
                       address={client.address || undefined}
                       name={client.name}
                     />
-                    <Link href={`/clientes/${client.id}/nueva-visita`}>
-                      <Button variant="outline" size="sm">
-                        Visitar
-                      </Button>
-                    </Link>
+                    {client.id && (
+                      <Link href={`/clientes/${client.id}/nueva-visita`}>
+                        <Button variant="outline" size="sm">
+                          Visitar
+                        </Button>
+                      </Link>
+                    )}
                   </div>
                 </div>
               );

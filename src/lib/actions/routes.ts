@@ -25,7 +25,7 @@ export async function getRouteWithClients(id: string) {
 
   const { data: routeClients } = await supabase
     .from("route_clients")
-    .select("*, client:clients(name, address, status)")
+    .select("*, client:clients(id, name, address, status)")
     .eq("route_id", id)
     .order("position", { ascending: true });
 
